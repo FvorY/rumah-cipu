@@ -1,8 +1,25 @@
 <script setup>
 import { CATS } from '../game/cat'
 
-defineProps({ name: { type: String, default: '' } })
+import { ref } from 'vue'
+
+const props = defineProps({
+  name: { type: String, default: '' },
+  owner: { type: String, default: 'none' }, // none | locked | ready
+  unlock: { type: Function, default: null },
+})
 defineEmits(['start'])
+
+const pass = ref('')
+const err = ref('')
+const busy = ref(false)
+const tryUnlock = async () => {
+  if (!pass.value || busy.value) return
+  busy.value = true
+  err.value = await props.unlock(pass.value)
+  busy.value = false
+  if (!err.value) pass.value = ''
+}
 
 const swatch = {
   cipu: 'linear-gradient(135deg, #1d1b1a 0 55%, #d8853b 55% 75%, #f3eee5 75%)',
@@ -31,8 +48,20 @@ const swatch = {
         </li>
       </ul>
 
-      <button class="go" @click="$emit('start', false)">{{ name ? `Masuk sebagai ${name}` : 'Bikin karakter & masuk' }}</button>
-      <button v-if="name" class="alt" @click="$emit('start', true)">Ganti karakter</button>
+      <template v-if="owner === 'locked'">
+        <form class="owner" @submit.prevent="tryUnlock">
+          <input v-model="pass" type="password" placeholder="Kunci pemilik" autocomplete="current-password" @keydown.stop />
+          <button class="go" :disabled="busy">{{ busy ? 'Ngecek...' : 'Buka' }}</button>
+        </form>
+        <p v-if="err" class="err">{{ err }}</p>
+      </template>
+      <template v-else-if="owner === 'ready'">
+        <button class="go gold" @click="$emit('start', false)">Masuk sebagai Ferdy · pemilik</button>
+      </template>
+      <template v-else>
+        <button class="go" @click="$emit('start', false)">{{ name ? `Masuk sebagai ${name}` : 'Bikin karakter & masuk' }}</button>
+        <button v-if="name" class="alt" @click="$emit('start', true)">Ganti karakter</button>
+      </template>
 
       <p class="controls">
         <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> jalan ·
@@ -128,6 +157,41 @@ h1 {
   font-weight: 900;
   font-size: 17px;
   transition: transform 0.12s, background 0.2s;
+}
+
+.owner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.owner input {
+  height: 46px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: #fffaf1;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  outline: none;
+}
+
+.owner input:focus {
+  border-color: #e0a526;
+}
+
+.err {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.go.gold {
+  background: #e0a526;
+  color: #3b2f2a;
 }
 
 .alt {

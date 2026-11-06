@@ -24,6 +24,12 @@ Masakannya tergantung hasil panen: cabai + tomat jadi sambal tomat, terong + cab
 
 Kucing bisa dielus, digendong, dikasih churu (ambil di kulkas), dipanggil, atau dikagetin pakai klakson mobil. Mereka juga bisa loncat ke kasur, sofa, cat tree, sama kap Mobilio.
 
+## Main bareng
+
+Siapa pun yang buka web-nya di waktu yang sama bakal ketemu di rumah yang sama: kelihatan karakternya, namanya, lagi jalan, duduk, tidur, mandi, atau masak. Koneksinya peer-to-peer (WebRTC lewat [Trystero](https://github.com/dmotz/trystero)), jadi nggak ada server sendiri. Konsekuensinya, sesama pemain bisa tahu alamat IP satu sama lain, sama seperti video call biasa. Kucing dan kebun tetap punya masing-masing.
+
+Pemilik rumah punya tanda khusus di atas kepalanya. Tanda itu diverifikasi pakai tanda tangan digital (Ed25519) di tiap browser, jadi nggak bisa dipalsuin cuma dengan ganti nama.
+
 ## Kontrol
 
 - `WASD` / panah: jalan, tahan `Shift` buat lari

@@ -11,6 +11,7 @@ import Joystick from './components/Joystick.vue'
 import SeedPicker from './components/SeedPicker.vue'
 import DenahModal from './components/DenahModal.vue'
 import Customizer from './components/Customizer.vue'
+import { ownerRouteActive, restoreOwner, unlockOwner } from './game/owner'
 
 const canvas = ref(null)
 const isTouch = ref(false)
@@ -24,14 +25,40 @@ onMounted(() => {
   mapOpen.value = window.innerWidth > 720
   game = new Game(canvas.value, ui)
   profileName.value = game.profile.name
+  if (ownerRouteActive()) {
+    ownerMode.value = 'locked'
+    restoreOwner().then((k) => {
+      if (!k) return
+      ownerKey = k
+      ownerMode.value = 'ready'
+    })
+  }
   if (import.meta.env.DEV) window.__game = game
 })
 
 onBeforeUnmount(() => game?.dispose())
 
 const profileName = ref('')
+// jalur pemilik: cuma aktif kalau dibuka lewat #ferdy, nggak ada tombolnya di mana pun
+const ownerMode = ref('none') // none | locked | ready
+let ownerKey = null
+const unlock = async (pass) => {
+  try {
+    const k = await unlockOwner(pass)
+    if (!k) return 'Kuncinya salah.'
+    ownerKey = k
+    ownerMode.value = 'ready'
+    return ''
+  } catch {
+    return 'Browser ini belum dukung, coba Chrome / Safari versi baru.'
+  }
+}
 // pemain baru (atau yang mau ganti) bikin karakter dulu sebelum masuk
 const start = (customize = false) => {
+  if (ownerMode.value === 'ready') {
+    game.start({ ownerKey })
+    return
+  }
   game.start()
   if (customize || !game.profile.name) {
     game.player.facing = 0
@@ -79,7 +106,7 @@ const harvestList = computed(() =>
     <canvas ref="canvas" class="scene" />
 
     <Transition name="fade">
-      <StartScreen v-if="!ui.started" :name="profileName" @start="start" />
+      <StartScreen v-if="!ui.started" :name="profileName" :owner="ownerMode" :unlock="unlock" @start="start" />
     </Transition>
 
     <template v-if="ui.started">
@@ -89,6 +116,10 @@ const harvestList = computed(() =>
           <Transition name="swap" mode="out-in">
             <strong :key="ui.room">{{ ui.room || '...' }}</strong>
           </Transition>
+        </div>
+        <div v-if="ui.online > 1" class="online panel" :title="ui.others.map((o) => o.name).join(', ')">
+          <i />{{ ui.online }} orang di rumah
+          <span class="names">{{ ui.others.slice(0, 3).map((o) => (o.owner ? '★ ' : '') + o.name).join(', ') }}{{ ui.others.length > 3 ? ` +${ui.others.length - 3}` : '' }}</span>
         </div>
         <div class="stash panel">
           <span class="stash-item"><i class="dot churu" />Churu {{ ui.churu }}</span>
@@ -208,6 +239,31 @@ const harvestList = computed(() =>
   font-size: 19px;
   font-weight: 900;
   letter-spacing: -0.01em;
+}
+
+.online {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 7px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  max-width: 260px;
+}
+
+.online i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4caf6e;
+  box-shadow: 0 0 0 3px rgba(76, 175, 110, 0.25);
+}
+
+.online .names {
+  width: 100%;
+  font-size: 11.5px;
+  color: var(--ink-soft);
 }
 
 .stash {

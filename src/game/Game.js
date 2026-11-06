@@ -9,6 +9,8 @@ import { buildRoof } from './roof'
 import { Physics } from './physics'
 import { NavGrid } from './nav'
 import { Player, DEFAULT_LOOK, sanitizeLook } from './player'
+import { Net, makeNameTag } from './net'
+import { OWNER_NAME, guestName } from './owner'
 import { Cat, CATS } from './cat'
 import { Garden, CROPS, STAGE_TEXT } from './garden'
 import { Fx } from './fx'
@@ -125,6 +127,9 @@ export class Game {
     this.profile = { name: saved.profile?.name || '', look: sanitizeLook(saved.profile?.look || DEFAULT_LOOK) }
     this.player = new Player(this.profile.look)
     this.activity = null
+    this.owner = false
+    this.net = new Net(this)
+    this.selfTag = null
     const sp = saved.player || [3.7, -0.7]
     this.player.pos.set(sp[0], 0, -sp[1])
     this.player.facing = saved.player ? (saved.facing ?? Math.PI) : Math.PI
@@ -186,10 +191,36 @@ export class Game {
     this.camera.updateProjectionMatrix()
   }
 
-  start() {
+  start({ ownerKey = null } = {}) {
     sound.unlock()
     this.ui.started = true
-    if (!this.saved.player) this.player.play('wave', 1.6)
+    if (ownerKey) {
+      // pemilik rumah masuk lewat jalur sendiri: muncul di kamarnya, bukan dari pagar
+      this.owner = true
+      // tampilan pemilik disimpan terpisah dari profil tamu di perangkat yang sama
+      this.profile = { name: OWNER_NAME, look: sanitizeLook(this.saved.ownerLook || DEFAULT_LOOK) }
+      this.player.setLook(this.profile.look)
+      this.player.pos.set(2.3, 0, -5.4)
+      this.player.facing = Math.PI / 2
+      this.cam.target.set(2.3, 0.85, -5.4)
+      this.toast('Selamat datang di rumah, Ferdy.')
+    }
+    if (!this.saved.player || ownerKey) this.player.play('wave', 1.6)
+    this.refreshSelfTag()
+    this.net.start(ownerKey)
+  }
+
+  // label nama di atas kepala sendiri (pemilik dapet badge emas)
+  refreshSelfTag() {
+    if (this.selfTag) {
+      this.scene.remove(this.selfTag)
+      this.selfTag.material.map.dispose()
+      this.selfTag.material.dispose()
+      this.selfTag = null
+    }
+    if (!this.profile.name) return
+    this.selfTag = makeNameTag(this.profile.name, this.owner)
+    this.scene.add(this.selfTag)
   }
 
   toast(text) {
@@ -294,6 +325,12 @@ export class Game {
     if (this.garden.update(dt, this.time)) this.sound.pop(1.2)
     this.fx.update(dt)
     this.updateTV(dt)
+    this.net.update(dt)
+    if (this.selfTag) {
+      const pl = this.player
+      this.selfTag.position.set(pl.pos.x, pl.pos.y + (pl.pose === 'sleep' ? 0.6 : 1.78), pl.pos.z)
+      this.selfTag.visible = !this.ui.customizer
+    }
 
     // kamera ngikutin
     const k = 1 - Math.exp(-dt * 6)
@@ -630,11 +667,14 @@ export class Game {
     this.profile.look = sanitizeLook(look)
     this.player.setLook(this.profile.look)
     this.player.play('dress', 0.9)
+    this.net.announce()
   }
 
   setProfile({ name, look }) {
-    if (typeof name === 'string') this.profile.name = name.trim().slice(0, 16)
+    if (typeof name === 'string') this.profile.name = this.owner ? OWNER_NAME : guestName(name)
     if (look) this.applyLook(look)
+    this.refreshSelfTag()
+    this.net.announce()
     this.save()
   }
 
@@ -949,7 +989,8 @@ export class Game {
     for (const c of this.cats) cats[c.def.id] = c.save()
     writeSave({
       player: this.player.seat || this.activity ? undefined : [this.player.pos.x, -this.player.pos.z],
-      profile: this.profile,
+      profile: this.owner ? this.saved.profile : this.profile,
+      ownerLook: this.owner ? this.profile.look : this.saved.ownerLook,
       facing: this.player.facing,
       cats,
       garden: this.garden.save(),
@@ -963,6 +1004,7 @@ export class Game {
 
   dispose() {
     this.save()
+    this.net.leave()
     clearTimeout(this.tourTimer)
     this.renderer.setAnimationLoop(null)
     this.input.dispose()
