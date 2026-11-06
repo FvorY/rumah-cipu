@@ -11,8 +11,8 @@ export const CROPS = {
 
 export const STAGE_TEXT = ['baru ditanam', 'tunas', 'tumbuh', 'siap panen']
 
-// 4 bedeng di sepanjang pagar belakang
-const PLOTS = [3.15, 4.1, 5.05, 6.0].map((x0, i) => ({ id: i, x0, x1: x0 + 0.8, z0: 15.25, z1: 15.85 }))
+// 2 bedeng dekat pintu belakang, sisanya area jemur
+const PLOTS = [3.15, 4.1].map((x0, i) => ({ id: i, x0, x1: x0 + 0.8, z0: 15.25, z1: 15.85 }))
 
 const leafGeo = new THREE.SphereGeometry(1, 12, 8)
 

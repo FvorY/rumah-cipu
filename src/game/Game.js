@@ -301,7 +301,7 @@ export class Game {
 
   // atap: kalau nyala, bagian yang nutupin karakter dari kamera dibikin tembus pandang
   roofTarget() {
-    const names = ['main', 'front', 'teras', 'back', 'canopy']
+    const names = ['main', 'front', 'teras', 'back', 'canopy', 'jemuran']
     const out = {}
     if (this.ui.lowWalls || !this.ui.roofOn) {
       for (const n of names) out[n] = 0

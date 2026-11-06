@@ -673,22 +673,59 @@ export function buildFurniture(scene, physics) {
   const stoneMat = M('#c8c1b5', 0.95)
   for (const z of [0.4, 1.0, 1.6]) at(B(0.62, 0.04, 0.36, stoneMat), 3.65, z, 0, 0.02)
 
-  // ===== Taman belakang: jemuran =====
+  // ===== Taman belakang: area jemur beratap =====
+  // tali jemuran digantung dari rangka kanopi (lihat roof.js), jadi nggak ada tiang
   const jem = new THREE.Group()
-  const poleM = M('#9a9a96', 0.4, { metalness: 0.5 })
-  jem.add(C(0.025, 0.025, 2.05, poleM, -0.8, 1.025, 0, 8))
-  jem.add(C(0.025, 0.025, 2.05, poleM, 0.8, 1.025, 0, 8))
-  jem.add(C(0.006, 0.006, 1.6, M('#eee', 0.5), 0, 2.0, 0, 4).rotateZ(Math.PI / 2))
-  const clothes = [['#e5735a', 0.34], ['#f1e7cf', 0.28], ['#5b86b5', 0.38], ['#f3c34a', 0.24]]
-  let cx = -0.72
-  for (const [c, w] of clothes) {
-    const cloth = B(w, 0.5, 0.01, M(c, 1, { side: THREE.DoubleSide }), cx + w / 2, 1.78, 0)
-    cloth.rotation.y = (Math.random() - 0.5) * 0.2
-    jem.add(cloth)
-    cx += w + 0.08
-  }
-  // tiangnya sengaja tanpa collider, biar jalur depan bedeng nggak ketutup
-  at(jem, 5.75, 14.7)
+  const rodM = M('#2b2d30', 0.45, { metalness: 0.5 })
+  const ropeM = M('#eeeeea', 0.5)
+  const canopyY = (z) => 2.62 - ((z - 14.9) / 1.15) * 0.42
+  const clothesSets = [
+    [['#e5735a', 0.34, 0.5], ['#f1e7cf', 0.5, 0.32], ['#5b86b5', 0.38, 0.55], ['#7fb8a4', 0.22, 0.3]],
+    [['#f3c34a', 0.3, 0.45], ['#ffffff', 0.55, 0.28], ['#c75b7a', 0.34, 0.5], ['#3a3f47', 0.26, 0.6]],
+  ]
+  ;[15.2, 15.6].forEach((z, row) => {
+    const y = 2.0
+    const rope = C(0.006, 0.006, 1.75, ropeM, 0, y, -z, 4)
+    rope.rotation.z = Math.PI / 2
+    rope.position.x = 5.98
+    jem.add(rope)
+    for (const x of [5.12, 6.84]) {
+      const h = canopyY(z) - y
+      jem.add(C(0.008, 0.008, h, rodM, x, y + h / 2, -z, 4))
+    }
+    let cx = 5.25
+    for (const [c, w, h] of clothesSets[row]) {
+      const cloth = B(w, h, 0.012, M(c, 1, { side: THREE.DoubleSide }), cx + w / 2, y - h / 2 - 0.02, -z)
+      cloth.rotation.y = (Math.random() - 0.5) * 0.25
+      jem.add(cloth)
+      // jepitan
+      jem.add(B(0.015, 0.04, 0.02, M('#e8564a', 0.5), cx + 0.04, y - 0.01, -z))
+      jem.add(B(0.015, 0.04, 0.02, M('#e8564a', 0.5), cx + w - 0.04, y - 0.01, -z))
+      cx += w + 0.1
+    }
+  })
+  root.add(jem)
+
+  // mesin cuci + keranjang
+  put([6.3, 15.32, 6.92, 15.94], [-1, 0], (w, d) => {
+    const g = new THREE.Group()
+    g.add(R(w, 0.85, d, M('#f2f3f1', 0.35), 0, 0.425, 0, 0.04))
+    g.add(B(w - 0.04, 0.1, 0.02, M('#d8dbdd', 0.4), 0, 0.76, d / 2))
+    g.add(C(0.02, 0.02, 0.012, M('#4a90d9', 0.3), w * 0.25, 0.76, d / 2 + 0.012, 12).rotateX(Math.PI / 2))
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.025, 10, 28), M('#c9ccd0', 0.25, { metalness: 0.6 }))
+    ring.position.set(0, 0.4, d / 2 + 0.01)
+    g.add(ring)
+    const glass = C(0.155, 0.155, 0.02, new THREE.MeshStandardMaterial({ color: '#7f97a8', roughness: 0.05, metalness: 0.3 }), 0, 0.4, d / 2 + 0.005, 28)
+    glass.rotation.x = Math.PI / 2
+    g.add(glass)
+    return g
+  })
+  const basket = new THREE.Group()
+  basket.add(C(0.2, 0.17, 0.3, M('#c9a46a', 1), 0, 0.15, 0, 16))
+  basket.add(S(0.15, M('#8fb3d9', 1), 0.02, 0.3, 0, 1, 0.4, 1))
+  at(basket, 5.35, 15.75)
+  physics.addPlan(5.15, 15.55, 5.55, 15.95)
+
   // keran air
   const tap2 = new THREE.Group()
   tap2.add(C(0.02, 0.02, 0.5, M('#9a9a96', 0.4, { metalness: 0.5 }), 0, 0.25, 0, 8))

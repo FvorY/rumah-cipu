@@ -233,8 +233,11 @@ function furniture() {
   for (const [x, z, r] of [[0.4, 1.55, 0.28], [0.42, 0.55, 0.26], [2.7, 0.35, 0.22]]) f.push(circle(x, z, r, 'fill="#fff" stroke="#000" stroke-width="1.2" stroke-dasharray="4 4"'))
   for (const z of [0.4, 1.0, 1.6]) f.push(rect(3.34, z - 0.18, 3.96, z + 0.18, FURN))
   // taman belakang
-  for (const x0 of [3.15, 4.1, 5.05, 6.0]) f.push(rect(x0, 15.25, x0 + 0.8, 15.85, FURN) + rect(x0 + 0.04, 15.29, x0 + 0.76, 15.81, THIN))
-  f.push(line(4.95, 14.7, 6.55, 14.7, 'stroke="#000" stroke-width="1" stroke-dasharray="6 5"'))
+  for (const x0 of [3.15, 4.1]) f.push(rect(x0, 15.25, x0 + 0.8, 15.85, FURN) + rect(x0 + 0.04, 15.29, x0 + 0.76, 15.81, THIN))
+  // area jemur: tali jemuran, mesin cuci, keranjang
+  for (const z of [15.2, 15.6]) f.push(line(5.12, z, 6.84, z, 'stroke="#000" stroke-width="1" stroke-dasharray="6 5"'))
+  f.push(rect(6.3, 15.32, 6.92, 15.94, FURN) + circle(6.61, 15.63, 0.2, FURN) + text(6.61, 15.63, 'MC', 14))
+  f.push(circle(5.35, 15.75, 0.2, FURN))
   f.push(circle(6.82, 14.75, 0.12, FURN))
   return f.join('')
 }
@@ -256,8 +259,9 @@ function labels() {
     L(3.72, 6.2, 'RUANG\nTAMU', '± 0.00', 22),
     L(2.85, 9.05, 'RUANG\nKELUARGA', '± 0.00', 22),
     L(4.0, 10.95, 'DAPUR', '± 0.00', 24),
-    L(6.12, 11.12, 'R. KUCING', '± 0.00', 18),
-    L(5.25, 14.98, 'TAMAN BELAKANG', '- 0.05', 18),
+    L(6.2, 10.95, 'R. KUCING', '± 0.00', 18),
+    L(4.0, 14.95, 'TAMAN', '- 0.05', 18),
+    L(5.8, 14.92, 'AREA JEMUR', '- 0.05', 16),
     L(4.0, 3.15, 'TERAS', '± 0.00', 22),
     L(5.8, 2.45, 'CARPORT', '± 0.00', 24),
   ].join('')
@@ -316,6 +320,7 @@ function roofLines() {
     rect(ROOF.front.x0, ROOF.front.z0, ROOF.front.x1, ROOF.front.z1, dash),
     rect(ROOF.back.x0, ROOF.back.z0, ROOF.back.x1, ROOF.back.z1, dash),
     rect(ROOF.canopy.x0, ROOF.canopy.z0, ROOF.canopy.x1, ROOF.canopy.z1, dash),
+    rect(ROOF.jemuran.x0, ROOF.jemuran.z0, ROOF.jemuran.x1, ROOF.jemuran.z1, dash),
   ].join('')
 }
 

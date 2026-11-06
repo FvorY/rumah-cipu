@@ -116,5 +116,5 @@ export const TOUR = [
   { room: 'dapur', text: 'Dapur. Di kulkas ada churu, jangan bilang Gimbul.' },
   { room: 'kamar2', text: 'Kamar tidur kedua.' },
   { room: 'kamar3', text: 'Kamar tidur ketiga, jendelanya ngadep taman.' },
-  { room: 'taman', text: 'Taman belakang. Bisa nanam cabai, tomat, sawi, sama terong.' },
+  { room: 'taman', text: 'Taman belakang: dua bedeng buat nanam, sebelahnya area jemur beratap sama mesin cuci.' },
 ]

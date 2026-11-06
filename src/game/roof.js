@@ -13,6 +13,8 @@ export const ROOF = {
   front: { x0: -0.35, x1: 4.68, z0: 1.5, z1: 4.05 },
   back: { x0: -0.35, x1: 3.35, z0: 14.95, z1: 16.1 },
   canopy: { x0: 4.62, x1: 7.05, z0: 0.25, z1: 4.45 },
+  // kanopi area jemur di taman belakang, nyambung di bawah lisplang atap utama
+  jemuran: { x0: 4.95, x1: 7.05, z0: 14.9, z1: 16.05 },
 }
 
 const V = (x, y, z) => new THREE.Vector3(x, y, -z) // koordinat denah -> dunia
@@ -181,7 +183,7 @@ export function buildRoof(scene, physics) {
     const slope = Math.atan2(yBack - yFront, len)
     const panel = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.015, len), poly)
     panel.position.set((x0 + x1) / 2, (yBack + yFront) / 2, -(z0 + z1) / 2)
-    panel.rotation.x = -slope
+    panel.rotation.x = slope // sisi depan (jalan) lebih rendah
     g.add(panel)
     // rangka
     const yAt = (z) => yFront + ((z - z0) / len) * (yBack - yFront) - 0.04
@@ -194,6 +196,37 @@ export function buildRoof(scene, physics) {
     // tiang di sisi pagar samping + kabel tarik dari dinding rumah
     for (const z of [0.45, 2.4]) g.add(box(6.95, 7.05, 0, yAt(z), z - 0.05, z + 0.05, steel))
     for (const x of [x0 + 0.05, (x0 + x1) / 2]) g.add(beam(V(x, 3.35, 4.45), V(x, yAt(z0 + 0.05), z0 + 0.05), 0.012, steel))
+  }
+
+  // ---------- kanopi jemuran ----------
+  {
+    const g = make('jemuran')
+    const { x0, x1, z0, z1 } = ROOF.jemuran
+    const steel = mat('jemuran', { color: '#2b2d30', roughness: 0.45, metalness: 0.5 })
+    const poly = mat('jemuran', {
+      color: '#c99556',
+      roughness: 0.3,
+      transparent: true,
+      opacity: 0.5,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+    poly.userData.base = 0.5
+    const yHigh = 2.62 // sisi rumah
+    const yLow = 2.2 // nempel di atas tembok pagar belakang
+    const len = z1 - z0
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.015, len), poly)
+    panel.position.set((x0 + x1) / 2, (yHigh + yLow) / 2 + 0.02, -(z0 + z1) / 2)
+    panel.rotation.x = -Math.atan2(yHigh - yLow, len) // sisi rumah lebih tinggi
+    g.add(panel)
+    const yAt = (z) => yHigh + ((z - z0) / len) * (yLow - yHigh)
+    for (const x of [x0, x1]) g.add(beam(V(x, yAt(z0), z0), V(x, yAt(z1), z1), 0.03, steel))
+    for (let k = 0; k <= 3; k++) {
+      const z = z0 + (len * k) / 3
+      g.add(beam(V(x0, yAt(z), z), V(x1, yAt(z), z), 0.025, steel))
+    }
+    // tiang di sisi yang nggak nempel tembok
+    g.add(box(x0 - 0.04, x0 + 0.04, 0, yAt(z0 + 0.1), z0 + 0.06, z0 + 0.14, steel))
   }
 
   for (const p of Object.values(parts)) {
@@ -211,6 +244,7 @@ export function buildRoof(scene, physics) {
     teras: { ...ROOF.front, x0: 3.0, y0: 2.55, y1: 3.25 },
     back: { ...ROOF.back, y0: 2.55, y1: 3.25 },
     canopy: { ...ROOF.canopy, y0: 2.4, y1: 2.75 },
+    jemuran: { ...ROOF.jemuran, y0: 2.1, y1: 2.7 },
   }
 
   return {
