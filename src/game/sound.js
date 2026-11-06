@@ -164,6 +164,39 @@ export const sound = {
     o.stop(t + 0.25)
   },
 
+  jump() {
+    if (!ensure() || muted) return
+    const t = ctx.currentTime
+    const o = ctx.createOscillator()
+    o.type = 'sine'
+    o.frequency.setValueAtTime(260, t)
+    o.frequency.exponentialRampToValueAtTime(580, t + 0.11)
+    const g = ctx.createGain()
+    env(g, t, 0.005, 0.22, 0.03, 0.09)
+    o.connect(g)
+    g.connect(master)
+    o.start(t)
+    o.stop(t + 0.18)
+  },
+
+  land() {
+    if (!ensure() || muted) return
+    const t = ctx.currentTime
+    const src = ctx.createBufferSource()
+    src.buffer = noise()
+    const lp = ctx.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.setValueAtTime(280, t)
+    lp.frequency.exponentialRampToValueAtTime(70, t + 0.07)
+    const g = ctx.createGain()
+    env(g, t, 0.002, 0.14, 0.01, 0.06)
+    src.connect(lp)
+    lp.connect(g)
+    g.connect(master)
+    src.start(t)
+    src.stop(t + 0.09)
+  },
+
   // bunyi "bip bip" answer back smart key
   beep() {
     if (!ensure() || muted) return

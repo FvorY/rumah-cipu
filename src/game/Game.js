@@ -177,6 +177,8 @@ export class Game {
 
   bindKeys() {
     for (const k of ['e', 'f', 'r', 'c', 'q', 'g', 'h', 't']) this.input.on(k, () => this.trigger(k.toUpperCase()))
+    this.input.on(' ', () => this.jump())
+    this.input.on('space', () => this.jump())
     this.input.on('v', () => this.toggleWalls())
     this.input.on('m', () => this.toggleMute())
     this.input.on('b', () => this.toggleRoof())
@@ -334,6 +336,26 @@ export class Game {
         this.physics.resolve(next, player.radius)
         player.pos.x = next.x
         player.pos.z = next.z
+      }
+
+      // gravitasi & lompat
+      if (!player.isGrounded || player.pos.y > 0 || Math.abs(player.vy) > 0.01) {
+        player.vy -= 16.5 * dt
+        player.pos.y += player.vy * dt
+        if (player.pos.y <= 0) {
+          player.pos.y = 0
+          player.vy = 0
+          if (!player.isGrounded) {
+            player.isGrounded = true
+            player.landingSquash = 0.82
+            sound.land()
+            this.fx.spawn('steam', new THREE.Vector3(player.pos.x, 0.02, player.pos.z), { size: 0.15, life: 0.25 })
+            for (const c of this.cats) {
+              if (Math.hypot(c.pos.x - player.pos.x, c.pos.z - player.pos.z) < 0.65) c.lookAt(player.pos)
+            }
+            this.syncUI(true)
+          }
+        }
       }
     }
 
@@ -647,11 +669,24 @@ export class Game {
     cands.sort((a, b) => a.d - b.d)
     if (cands.length) acts.unshift(cands[0].act)
     acts.push({ key: 'C', label: 'Panggil kucing', run: () => this.callCats(), secondary: true })
+    if (!this.player.seat && !this.activity && !this.drivingVehicle) {
+      acts.push({
+        key: 'SPACE',
+        label: 'Loncat 🦘',
+        disabled: !this.player.isGrounded,
+        run: () => this.jump(),
+        secondary: true,
+      })
+    }
     return acts
   }
 
   trigger(key) {
     if (!this.ui.started || this.ui.seedPicker !== null) return
+    if (key === 'SPACE' || key === ' ' || key === 'LONCAT') {
+      this.jump()
+      return
+    }
     // lagi duduk & nggak ada aksi E lain: E = berdiri
     if (key === 'E' && this.player.seat && !this.actions.some((x) => x.key === 'E')) key = 'Q'
     const a = this.actions.find((x) => x.key === key && !x.disabled)
@@ -1071,6 +1106,26 @@ export class Game {
     this.car.honk()
     const from = { x: this.car.center.x, z: this.car.center.z }
     for (const c of this.cats) c.scare(from)
+  }
+
+  jump() {
+    if (this.drivingVehicle) {
+      if (this.drivingVehicle === 'car') this.honk()
+      else if (this.drivingVehicle === 'motor') {
+        sound.beep()
+        this.motor.answerBack()
+      }
+      return
+    }
+    if (!this.ui.started || this.ui.customizer || this.ui.photoMode || this.ui.seedPicker !== null) return
+    if (this.player.seat || this.activity) return
+    if (!this.player.isGrounded) return
+
+    this.player.vy = 4.9
+    this.player.isGrounded = false
+    sound.jump()
+    this.fx.spawn('steam', new THREE.Vector3(this.player.pos.x, 0.04, this.player.pos.z), { size: 0.12, life: 0.35 })
+    this.syncUI(true)
   }
 
   water(plot) {

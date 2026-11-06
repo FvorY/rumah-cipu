@@ -157,3 +157,4 @@ export class Neighbor {
     this.tag.position.set(this.pos.x, this.pos.y + 1.78, this.pos.z)
   }
 }
+

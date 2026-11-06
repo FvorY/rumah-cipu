@@ -12,13 +12,21 @@ export class Input {
     this.pinchD = 0
 
     this._down = (e) => {
-      if (e.target instanceof HTMLInputElement) return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       const k = e.key.toLowerCase()
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault()
-      if (!this.keys.has(k)) this.handlers.get(k)?.forEach((fn) => fn(e))
+      if (!this.keys.has(k)) {
+        this.handlers.get(k)?.forEach((fn) => fn(e))
+        if (k === ' ') this.handlers.get('space')?.forEach((fn) => fn(e))
+      }
       this.keys.add(k)
+      if (k === ' ') this.keys.add('space')
     }
-    this._up = (e) => this.keys.delete(e.key.toLowerCase())
+    this._up = (e) => {
+      const k = e.key.toLowerCase()
+      this.keys.delete(k)
+      if (k === ' ') this.keys.delete('space')
+    }
     this._blur = () => this.keys.clear()
 
     this._pdown = (e) => {

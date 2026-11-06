@@ -16,6 +16,7 @@ Pakai Vue 3 + Three.js. Semua model (rumah, karakter, kucing, mobil, tanaman) di
 | Mujaer | jantan | abu-abu belang kayak mujaer   | suka ngintil, nongkrong di kap mobil            |
 
 Karakternya bisa dibikin sendiri (cowok/cewek, kulit, rambut termasuk gaya cowok unik/aneh, hijab, kemeja/kaos/hoodie/batik, celana/rok, pilihan sepatu) dan bisa:
+- loncat (`Spasi` di keyboard atau tombol loncat di HP) dengan animasi lentur, hentakan kaki, dan bayangan dinamis
 - duduk (`Q`) di sofa, kursi, kasur, sampai jok motor (posisi duduk & tidur ganda, bisa berdampingan/sebelahan)
 - mandi di shower, tidur di kasur (duduk dulu di kasur, lalu `E`), masak di kompor
 - ganti baju & sepatu di lemari
@@ -38,7 +39,7 @@ Tersedia Mode Foto (`P` atau tombol 📸) dengan viewfinder fotografi, pilihan s
 
 ## Kontrol
 
-- `WASD` / panah: jalan / kemudi kendaraan, tahan `Shift` buat lari / ngebut
+- `WASD` / panah: jalan / kemudi kendaraan, tahan `Shift` buat lari / ngebut, `Spasi` buat loncat
 - drag: muter kamera, scroll: zoom
 - `E` interaksi (makan, sapa tetangga/teman, kendarai mobil/motor, masak, mandi), `Q` duduk / berdiri / turun kendaraan, `F` gendong, `R` kasih churu, `C` panggil kucing
 - `G` ajak tetangga jalan bareng / nebeng, `H` klakson kendaraan

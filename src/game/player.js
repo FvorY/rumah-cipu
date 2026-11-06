@@ -677,6 +677,9 @@ export class Player {
     this.carrying = null
     this.seat = null // kursi yang lagi didudukin
     this.pose = null // 'sleep' | 'shower' | 'cook'
+    this.vy = 0
+    this.isGrounded = true
+    this.landingSquash = 1
     this.setLook(look)
   }
 
@@ -869,6 +872,10 @@ export class Player {
     }
     this.root.rotation.y = this.facing
 
+    // deteksi melayang di udara (baik loncat lokal maupun sinkronisasi multiplayer)
+    const inAir = !this.isGrounded || this.pos.y > 0.04
+    this.isGrounded = !inAir
+
     // animasi jalan
     const amt = Math.min(1, this.speed / 1.7)
     this.phase += dt * (4 + this.speed * 3.4)
@@ -876,8 +883,8 @@ export class Player {
     const sit = this.seat ? 1 : 0
     const lying = this.pose === 'sleep'
     const lk = 1 - Math.exp(-dt * 10)
-    const legTarget = [sw * 0.7, -sw * 0.7]
-    const kneeTarget = [Math.max(0, -sw) * 0.7 + 0.08 * amt, Math.max(0, sw) * 0.7 + 0.08 * amt]
+    let legTarget = [sw * 0.7, -sw * 0.7]
+    let kneeTarget = [Math.max(0, -sw) * 0.7 + 0.08 * amt, Math.max(0, sw) * 0.7 + 0.08 * amt]
     for (let i = 0; i < 2; i++) {
       let lt = legTarget[i]
       let kt = kneeTarget[i]
@@ -887,15 +894,29 @@ export class Player {
       } else if (lying) {
         lt = i ? 0.05 : -0.05
         kt = 0.05
+      } else if (inAir) {
+        if (this.vy > 0.2) {
+          lt = i ? -0.42 : -0.32
+          kt = i ? 0.85 : 0.75
+        } else {
+          lt = i ? 0.12 : -0.05
+          kt = 0.22
+        }
       }
-      const smoothLeg = sit || lying
+      const smoothLeg = sit || lying || inAir
       this.legs[i].rotation.x += (lt - this.legs[i].rotation.x) * (smoothLeg ? lk : 1)
       this.knees[i].rotation.x += (kt - this.knees[i].rotation.x) * (smoothLeg ? lk : 1)
     }
     // rebahan: seluruh badan diputar telentang
     const lieTarget = lying ? -Math.PI / 2 : 0
     this.body.rotation.x += (lieTarget - this.body.rotation.x) * lk
-    this.body.position.y = lying ? 0 : Math.abs(Math.cos(this.phase)) * 0.035 * amt
+
+    // bobbing jalan & efek pendaratan (squash lembut)
+    const bob = inAir || lying ? 0 : Math.abs(Math.cos(this.phase)) * 0.035 * amt
+    this.landingSquash += (1 - this.landingSquash) * (1 - Math.exp(-dt * 12))
+    const squashCrouch = (1 - this.landingSquash) * -0.06
+    this.body.position.y = bob + squashCrouch
+
     this.torso.rotation.x = this.speed > 2 ? 0.12 : 0.03 * amt
     this.torso.rotation.y = sw * 0.08
 
@@ -908,12 +929,33 @@ export class Player {
     let crouch = 0
     let eyesClosed = false
 
-    // diam: napas pelan
+    // diam: napas pelan / squash & stretch loncat
     const t = performance.now() / 1000
-    if (amt < 0.1) {
+    if (inAir) {
+      if (this.vy > 0.3) {
+        this.torso.scale.set(0.95, 1.08, 0.95)
+      } else {
+        this.torso.scale.set(1.02, 0.98, 1.02)
+      }
+    } else if (this.landingSquash < 0.999) {
+      const s = this.landingSquash
+      this.torso.scale.set(1 + (1 - s) * 0.35, s, 1 + (1 - s) * 0.35)
+    } else if (amt < 0.1) {
       this.torso.scale.y = 1 + Math.sin(t * 2.2) * (lying ? 0.015 : 0.008)
+      this.torso.scale.x = this.torso.scale.z = 1
       headPitch = Math.sin(t * 0.7) * 0.03
-    } else this.torso.scale.y = 1
+    } else {
+      this.torso.scale.set(1, 1, 1)
+    }
+
+    if (inAir && !this.action && !this.carrying && !this.pose && !sit) {
+      // dua tangan keangkat sedikit ke samping-atas buat jaga keseimbangan
+      la = this.vy > 0.2 ? -1.25 : -0.85
+      ra = this.vy > 0.2 ? -1.25 : -0.85
+      lz = this.vy > 0.2 ? 0.55 : 0.38
+      rz = this.vy > 0.2 ? -0.55 : -0.38
+      headPitch = this.vy > 0.2 ? -0.15 : 0.1
+    }
 
     if (this.action) {
       const a = this.action
@@ -973,6 +1015,15 @@ export class Player {
     }
     this.spatula.visible = this.pose === 'cook'
     this.blob.visible = !lying && !sit
+    if (this.blob.visible) {
+      this.blob.position.y = 0.02 - this.pos.y
+      const h = Math.max(0, this.pos.y)
+      const s = Math.max(0.42, 1 - h * 0.45)
+      this.blob.scale.set(s, s, 1)
+      if (this.blob.material) {
+        this.blob.material.opacity = Math.max(0.04, 0.18 - h * 0.08)
+      }
+    }
 
     if (this.seat && !this.action && !this.pose) {
       // tangan istirahat di pangkuan

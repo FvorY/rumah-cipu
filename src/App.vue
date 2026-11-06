@@ -298,7 +298,7 @@ const closePhotoPreview = () => {
 
       <Transition name="fade">
         <div v-if="showHelp && !ui.photoMode" class="help panel" @click="showHelp = false">
-          <p><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> jalan, tahan <span class="kbd">Shift</span> buat lari</p>
+          <p><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> jalan, tahan <span class="kbd">Shift</span> lari, <span class="kbd">Spasi</span> loncat</p>
           <p>Drag layar buat muter kamera, scroll buat zoom</p>
           <p><span class="kbd">E</span> interaksi &nbsp;<span class="kbd">Q</span> duduk / berdiri &nbsp;<span class="kbd">F</span> gendong &nbsp;<span class="kbd">R</span> churu &nbsp;<span class="kbd">C</span> panggil</p>
           <p><span class="kbd">P</span> mode foto &nbsp;<span class="kbd">T</span> tur rumah &nbsp;<span class="kbd">V</span> dinding rendah &nbsp;<span class="kbd">B</span> atap &nbsp;<span class="kbd">M</span> suara</p>

@@ -9,6 +9,7 @@ const emit = defineEmits(['trigger'])
 
 const main = computed(() => props.prompts.filter((p) => !p.secondary))
 const extra = computed(() => props.prompts.filter((p) => p.secondary))
+const formatKey = (k) => (k === 'SPACE' ? 'Spasi' : k)
 </script>
 
 <template>
@@ -22,12 +23,18 @@ const extra = computed(() => props.prompts.filter((p) => p.secondary))
         :class="{ disabled: p.disabled }"
         @click="!p.disabled && emit('trigger', p.key)"
       >
-        <span v-if="!p.disabled" class="kbd">{{ p.key }}</span>
+        <span v-if="!p.disabled" class="kbd">{{ formatKey(p.key) }}</span>
         {{ p.label }}
       </button>
     </TransitionGroup>
-    <button v-for="p in extra" :key="p.key" class="prompt ghost" @click="emit('trigger', p.key)">
-      <span class="kbd">{{ p.key }}</span>{{ p.label }}
+    <button
+      v-for="p in extra"
+      :key="p.key"
+      class="prompt ghost"
+      :class="{ disabled: p.disabled }"
+      @click="!p.disabled && emit('trigger', p.key)"
+    >
+      <span class="kbd">{{ formatKey(p.key) }}</span>{{ p.label }}
     </button>
   </div>
 
@@ -42,7 +49,13 @@ const extra = computed(() => props.prompts.filter((p) => p.secondary))
     >
       {{ p.label }}
     </button>
-    <button v-for="p in extra" :key="p.key" class="round small" @pointerdown.prevent="emit('trigger', p.key)">
+    <button
+      v-for="p in extra"
+      :key="p.key"
+      class="round small"
+      :class="{ 'jump-btn': p.key === 'SPACE', disabled: p.disabled }"
+      @pointerdown.prevent="!p.disabled && emit('trigger', p.key)"
+    >
       {{ p.label }}
     </button>
   </div>
@@ -142,10 +155,28 @@ const extra = computed(() => props.prompts.filter((p) => p.secondary))
   color: #fff7ea;
 }
 
+.round.small.jump-btn {
+  min-height: 44px;
+  border-radius: 22px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 900;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  border: 1.5px solid rgba(224, 165, 38, 0.45);
+}
+
+.round.small.jump-btn:active {
+  transform: scale(0.92) translateY(2px);
+  background: #fdf6ec;
+}
+
 .round.disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   background: var(--panel);
   color: var(--ink-soft);
+  transform: none;
 }
 
 .pop-enter-active {
