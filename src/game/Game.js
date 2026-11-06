@@ -657,9 +657,15 @@ export class Game {
       const f = this.player.facing
       const ox = Math.sin(f)
       const oz = Math.cos(f)
-      // agak serong & geser kiri biar karakter nggak ketutup panel
-      cam.position.set(p.x + ox * 2.3 - oz * 0.6, p.y + 1.15, p.z + oz * 2.3 + ox * 0.6)
-      cam.lookAt(p.x - oz * 0.35, p.y + 0.75, p.z + ox * 0.35)
+      if (cam.aspect < 1) {
+        // HP portrait: panel di bawah, jadi karakter ditaruh utuh di setengah atas layar
+        cam.position.set(p.x + ox * 3.3, p.y + 0.95, p.z + oz * 3.3)
+        cam.lookAt(p.x, p.y - 0.05, p.z)
+      } else {
+        // desktop: agak serong & geser kiri biar nggak ketutup panel kanan
+        cam.position.set(p.x + ox * 2.3 - oz * 0.6, p.y + 1.15, p.z + oz * 2.3 + ox * 0.6)
+        cam.lookAt(p.x - oz * 0.35, p.y + 0.75, p.z + ox * 0.35)
+      }
     }
   }
 

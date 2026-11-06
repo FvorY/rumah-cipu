@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, nextTick } from 'vue'
 import { LOOK_OPTIONS, PRESETS } from '../game/player'
 
 const props = defineProps({
@@ -12,10 +12,12 @@ const emit = defineEmits(['change', 'done', 'cancel'])
 const L = reactive({ ...props.look })
 const nama = ref(props.name)
 const tab = ref(props.mode === 'create' ? 'dasar' : 'atasan')
+const nameInput = ref(null)
+const shake = ref(false)
 const original = { ...props.look }
 
 const tabs = computed(() => [
-  ...(props.mode === 'create' ? [{ id: 'dasar', label: 'Dasar' }] : []),
+  ...(props.mode === 'create' ? [{ id: 'dasar', label: 'Badan' }] : []),
   { id: 'rambut', label: 'Rambut' },
   { id: 'atasan', label: 'Atasan' },
   { id: 'bawahan', label: 'Bawahan' },
@@ -32,10 +34,17 @@ const setGender = (g) => {
   emit('change', { ...L })
 }
 
-const nameError = computed(() => (props.mode === 'create' && !nama.value.trim() ? 'Isi nama dulu ya' : ''))
+const needName = computed(() => props.mode === 'create' && !nama.value.trim())
 
-const done = () => {
-  if (nameError.value) return
+const done = async () => {
+  if (needName.value) {
+    // kasih tahu dengan jelas: goyang + fokus ke kolom nama
+    shake.value = false
+    await nextTick()
+    shake.value = true
+    nameInput.value?.focus()
+    return
+  }
   emit('done', { name: nama.value.trim(), look: { ...L } })
 }
 
@@ -53,17 +62,17 @@ const cancel = () => {
         <p>{{ mode === 'create' ? 'Ini yang bakal dilihat orang lain di rumah.' : 'Ganti baju, langsung kelihatan.' }}</p>
       </header>
 
+      <label v-if="mode === 'create'" class="field" :class="{ shake, missing: shake && needName }">
+        <span>Nama</span>
+        <input ref="nameInput" v-model="nama" maxlength="16" placeholder="Nama kamu" autocomplete="off" enterkeyhint="done" @keydown.stop @keydown.enter="done" />
+      </label>
+
       <nav class="tabs">
         <button v-for="t in tabs" :key="t.id" :class="{ on: tab === t.id }" @click="tab = t.id">{{ t.label }}</button>
       </nav>
 
       <section v-if="tab === 'dasar'">
-        <label class="field">
-          <span>Nama</span>
-          <input v-model="nama" maxlength="16" placeholder="Nama kamu" autocomplete="off" @keydown.stop />
-        </label>
-        <p v-if="nameError" class="err">{{ nameError }}</p>
-        <div class="row">
+        <div class="row first">
           <span class="lbl">Karakter</span>
           <div class="chips">
             <button :class="{ on: L.gender === 'cowok' }" @click="setGender('cowok')">Cowok</button>
@@ -121,7 +130,9 @@ const cancel = () => {
 
       <footer>
         <button v-if="mode === 'wardrobe'" class="ghost" @click="cancel">Batal</button>
-        <button class="primary" @click="done">{{ mode === 'create' ? 'Masuk rumah' : 'Pakai' }}</button>
+        <button class="primary" :class="{ dim: needName }" @click="done">
+          {{ mode === 'create' ? (needName ? 'Isi nama dulu' : 'Masuk rumah') : 'Pakai' }}
+        </button>
       </footer>
     </div>
   </div>
@@ -187,13 +198,14 @@ header p {
 }
 
 section {
-  min-height: 150px;
+  min-height: 112px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  margin-bottom: 12px;
   font-size: 12px;
   font-weight: 800;
   color: var(--ink-soft);
@@ -214,6 +226,35 @@ section {
 
 .field input:focus {
   border-color: var(--accent);
+}
+
+.field.missing input {
+  border-color: var(--accent);
+  background: #fff1ea;
+}
+
+.shake {
+  animation: shake 0.35s;
+}
+
+@keyframes shake {
+  25% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+.row.first {
+  margin-top: 0;
+}
+
+.primary.dim {
+  background: #8a7b70;
 }
 
 .err {
@@ -316,7 +357,35 @@ footer button {
   }
   .sheet {
     width: 100%;
-    max-height: 52vh;
+    max-height: 50vh;
+    padding: 12px 14px;
+  }
+  header p {
+    display: none;
+  }
+  h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+  .field {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .field input {
+    flex: 1;
+    height: 38px;
+  }
+  .tabs {
+    margin-bottom: 10px;
+  }
+  footer {
+    position: sticky;
+    bottom: -12px;
+    margin: 12px -14px -12px;
+    padding: 10px 14px 12px;
+    background: var(--panel);
   }
 }
 </style>

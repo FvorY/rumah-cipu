@@ -102,7 +102,7 @@ const harvestList = computed(() =>
 </script>
 
 <template>
-  <div class="app" :class="{ touch: isTouch }">
+  <div class="app" :class="{ touch: isTouch, customizing: !!ui.customizer }">
     <canvas ref="canvas" class="scene" />
 
     <Transition name="fade">
@@ -197,6 +197,15 @@ const harvestList = computed(() =>
   inset: 0;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* pas lagi atur karakter, HUD disembunyiin biar karakternya kelihatan utuh */
+.customizing .top-left,
+.customizing .top-right,
+.customizing .minimap,
+.customizing .cat-card,
+.customizing .help {
+  display: none;
 }
 
 .scene {

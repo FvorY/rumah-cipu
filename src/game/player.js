@@ -250,138 +250,231 @@ function buildHead(look, skinMat) {
   return { head, eyes, smile }
 }
 
-function buildHair(look, hair, hairMat) {
-  const strand = (pts, r0, r1) => {
-    const m = new THREE.Mesh(tube(pts.map(([az, el, lift]) => onHead(az, el, lift)), r0, r1), hairMat)
-    m.castShadow = true
-    hair.add(m)
+const smoothstep = (a, b, v) => {
+  const t = Math.min(1, Math.max(0, (v - a) / (b - a)))
+  return t * t * (3 - 2 * t)
+}
+
+// lubang bentuk oval/kotak-tumpul di koordinat (azimuth, elevasi) kepala
+const oval = (a, b, c, p = 4) => (az, el) => Math.pow(Math.abs(az / a), p) + Math.pow(Math.abs((el - c) / b), p) < 1
+const ovalPoint = (a, b, c, p, t) => {
+  const ct = Math.cos(t)
+  const st = Math.sin(t)
+  return [a * Math.sign(ct) * Math.pow(Math.abs(ct), 2 / p), c + b * Math.sign(st) * Math.pow(Math.abs(st), 2 / p)]
+}
+
+// "cangkang" rambut: bola yang dipotong bawahnya, dikasih lubang buat muka, dan
+// bisa ngembang (flare). Hasilnya siluet rambut yang rapi & kebaca jelas walau kecil.
+function hairShell({ r, bottom, hole, holeSpec, flare = () => 1, mat, rim = 0.02, seg = 64 }) {
+  const group = new THREE.Group()
+  const thetaMax = Math.PI / 2 - bottom
+  const geo = new THREE.SphereGeometry(r, seg, Math.round(seg * 0.6), 0, Math.PI * 2, 0, Math.min(Math.PI, thetaMax))
+  const pos = geo.attributes.position
+  const v = new THREE.Vector3()
+  const toPoint = (az, el) => {
+    const f = flare(az, el)
+    return new THREE.Vector3(Math.sin(az) * Math.cos(el) * r * f * HEAD_SCALE.x, Math.sin(el) * r * f * HEAD_SCALE.y, Math.cos(az) * Math.cos(el) * r * f * HEAD_SCALE.z)
   }
-  const cap = (extra = 0.016, tilt = -0.42, cover = 0.56) => {
-    const m = mesh(new THREE.SphereGeometry(HEAD_R + extra, 40, 24, 0, Math.PI * 2, 0, Math.PI * cover), hairMat, hair)
-    m.scale.copy(HEAD_SCALE).multiplyScalar(1.02)
-    m.rotation.x = tilt
-    m.position.set(0, 0.01, -0.012)
-    return m
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i).normalize()
+    const p = toPoint(Math.atan2(v.x, v.z), Math.asin(Math.max(-1, Math.min(1, v.y))))
+    pos.setXYZ(i, p.x, p.y, p.z)
   }
-  const back = (len = -0.35, n = 7, lift = 0.042) => {
-    for (let i = 0; i < n; i++) {
-      const az = 2.2 + (i * 1.9) / (n - 1)
-      strand([[az, 1.15, 0.03], [az, 0.6, lift], [az + 0.1, len, lift * 0.4]], 0.05, 0.012)
+  // buang segitiga yang masuk lubang muka
+  if (hole) {
+    const idx = geo.index.array
+    const keep = []
+    const a = new THREE.Vector3()
+    for (let i = 0; i < idx.length; i += 3) {
+      a.set(0, 0, 0)
+      for (let k = 0; k < 3; k++) a.add(v.fromBufferAttribute(pos, idx[i + k]))
+      a.divide(HEAD_SCALE).normalize()
+      if (!hole(Math.atan2(a.x, a.z), Math.asin(a.y))) keep.push(idx[i], idx[i + 1], idx[i + 2])
     }
+    geo.setIndex(keep)
   }
+  geo.computeVertexNormals()
+  const m = new THREE.Mesh(geo, mat)
+  m.castShadow = true
+  group.add(m)
+
+  // list tebal di tepi lubang & di ujung bawah biar nggak keliatan setipis kertas
+  const addRim = (pts, closed) => {
+    if (pts.length < 3) return
+    const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, closed), pts.length * 2, rim, 6, closed), mat)
+    t.castShadow = true
+    group.add(t)
+  }
+  if (holeSpec) {
+    const [ha, hb, hc, hp] = holeSpec
+    const pts = []
+    for (let i = 0; i <= 96; i++) {
+      const [az, el] = ovalPoint(ha, hb, hc, hp, -Math.PI / 2 + (i / 96) * Math.PI * 2)
+      if (el > bottom + 0.03) pts.push(toPoint(az, el))
+    }
+    addRim(pts, false)
+  }
+  if (bottom > -Math.PI / 2 + 0.05) {
+    const pts = []
+    for (let i = 0; i <= 96; i++) {
+      const az = (i / 96) * Math.PI * 2
+      if (!hole || !hole(Math.atan2(Math.sin(az), Math.cos(az)), bottom + 0.02)) pts.push(toPoint(az, bottom + 0.01))
+    }
+    addRim(pts, pts.length > 95)
+  }
+  return group
+}
+
+function buildHair(look, hair, hairMat) {
+  // warna sedikit lebih gelap buat helai aksen, biar ada detail
+  const shade = mat(new THREE.Color(look.hairColor).multiplyScalar(0.72), 0.55)
+  hairMat.side = THREE.DoubleSide
+  const strand = (pts, r0, r1, m = hairMat) => {
+    const mm = new THREE.Mesh(tube(pts.map(([az, el, lift]) => onHead(az, el, lift)), r0, r1), m)
+    mm.castShadow = true
+    hair.add(mm)
+  }
+  const add = (o) => hair.add(o)
 
   switch (look.hair) {
     case 'cepak': {
-      cap(0.01, -0.3, 0.55)
-      for (let i = 0; i <= 8; i++) {
-        const az = -0.75 + (i / 8) * 1.5
-        strand([[az, 0.95, 0.018], [az + 0.05, 0.72, 0.022], [az + 0.08, 0.55, 0.012]], 0.035, 0.006)
+      const H = [1.1, 0.8, -0.38, 6]
+      const face = oval(...H)
+      add(
+        hairShell({
+          r: HEAD_R + 0.014,
+          bottom: -0.32,
+          hole: face,
+          holeSpec: H,
+          flare: (az, el) => 1 + 0.03 * smoothstep(0.7, 1.4, el),
+          mat: hairMat,
+          rim: 0.014,
+        }),
+      )
+      // jambul pendek di depan
+      for (let i = 0; i < 7; i++) {
+        const az = -0.6 + i * 0.2
+        const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.09, 8), i % 2 ? shade : hairMat)
+        const p = onHead(az, 0.55, 0.02)
+        tuft.position.copy(p)
+        orient(tuft, p.clone().normalize(), new THREE.Vector3(0, 0.3, 1))
+        tuft.rotateX(-0.6)
+        add(tuft)
       }
-      for (const s of [-1, 1]) for (let i = 0; i < 3; i++) strand([[s * (0.9 + i * 0.3), 0.8, 0.015], [s * (1.0 + i * 0.3), 0.3, 0.012]], 0.03, 0.006)
-      back(0.05, 6, 0.02)
       break
     }
     case 'poni': {
-      cap()
+      const H = [0.95, 0.75, -0.45, 4]
+      add(hairShell({ r: HEAD_R + 0.028, bottom: -0.42, hole: oval(...H), holeSpec: H, flare: (az, el) => 1 + 0.05 * smoothstep(0.2, -0.4, el), mat: hairMat }))
+      // poni belah tengah, jatuh ke dua sisi
       for (const s of [-1, 1]) {
-        for (let i = 0; i <= 5; i++) {
-          const t = i / 5
-          strand([[s * 0.05, 1.15, 0.03], [s * (0.15 + t * 0.6), 0.75, 0.065], [s * (0.3 + t * 0.75), 0.3 - t * 0.1, 0.016]], 0.05, 0.006)
-        }
-        for (let i = 0; i < 4; i++) strand([[s * (0.75 + i * 0.22), 0.85, 0.03], [s * (1.0 + i * 0.22), 0.5, 0.045], [s * (1.15 + i * 0.25), 0.05, 0.014]], 0.045, 0.008)
+        strand([[s * 0.04, 1.05, 0.04], [s * 0.42, 0.6, 0.06], [s * 0.78, 0.12, 0.03]], 0.075, 0.025)
+        strand([[s * 0.2, 0.95, 0.045], [s * 0.6, 0.55, 0.055], [s * 0.95, 0.05, 0.03]], 0.06, 0.02, shade)
       }
-      back()
       break
     }
     case 'bob':
     case 'panjang': {
-      cap(0.02)
-      // poni rata
-      for (let i = 0; i <= 10; i++) {
-        const az = -0.85 + (i / 10) * 1.7
-        strand([[az * 0.6, 1.05, 0.035], [az, 0.62, 0.05], [az, 0.27 + Math.abs(az) * 0.05, 0.018]], 0.05, 0.012)
-      }
-      // samping & belakang sampai rahang, makin bawah makin ngembang
-      const low = look.hair === 'panjang' ? -0.75 : -0.5
-      for (let i = 0; i < 16; i++) {
-        const az = (i % 2 ? 1 : -1) * (0.95 + Math.floor(i / 2) * 0.3)
-        strand([[az, 1.0, 0.03], [az, 0.3, 0.06], [az * 1.02, low, 0.09]], 0.06, 0.02)
-      }
-      if (look.hair === 'panjang') {
-        // tirai rambut panjang di punggung
-        const curtain = new THREE.Mesh(new THREE.CylinderGeometry(0.255, 0.28, 0.55, 28, 1, true, Math.PI - 1.75, 3.5), hairMat)
-        curtain.material = hairMat.clone()
-        curtain.material.side = THREE.DoubleSide
-        curtain.position.set(0, -0.3, -0.02)
+      const long = look.hair === 'panjang'
+      const H = [0.9, 1.0, -0.78, 4] // atas lubang di el 0.22 = garis poni
+      add(
+        hairShell({
+          r: HEAD_R + 0.035,
+          bottom: long ? -1.15 : -0.95,
+          hole: oval(...H),
+          holeSpec: H,
+          flare: (az, el) => 1 + (long ? 0.2 : 0.17) * smoothstep(0.15, -0.85, el) - 0.05 * smoothstep(-0.8, -1.0, el),
+          mat: hairMat,
+          rim: 0.022,
+        }),
+      )
+      // belahan & aksen di ubun-ubun
+      for (const s of [-1, 1]) for (let i = 0; i < 3; i++) strand([[s * 0.08, 1.25, 0.045], [s * (0.5 + i * 0.35), 0.9, 0.05], [s * (0.9 + i * 0.45), 0.35, 0.045]], 0.035, 0.012, shade)
+      if (long) {
+        // rambut panjang di punggung
+        const curtain = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.31, 0.5, 40, 1, true, Math.PI - 1.9, 3.8), hairMat)
+        curtain.position.set(0, -0.42, -0.03)
+        curtain.scale.z = 0.92
         curtain.castShadow = true
-        hair.add(curtain)
+        add(curtain)
+        // dua helai depan di atas bahu
+        for (const s of [-1, 1]) {
+          const lock = new THREE.Mesh(
+            tube([new THREE.Vector3(s * 0.25, -0.18, 0.06), new THREE.Vector3(s * 0.29, -0.42, 0.09), new THREE.Vector3(s * 0.27, -0.66, 0.08)], 0.06, 0.03, 0, 12),
+            hairMat,
+          )
+          lock.castShadow = true
+          add(lock)
+        }
       }
       break
     }
     case 'kuncir': {
-      cap(0.016, -0.35)
-      for (let i = 0; i <= 7; i++) {
-        const t = i / 7
-        strand([[-0.8 + t * 0.5, 1.0, 0.03], [-0.5 + t * 0.9, 0.7, 0.05], [-0.25 + t * 1.1, 0.35, 0.016]], 0.05, 0.008)
-      }
-      for (const s of [-1, 1]) for (let i = 0; i < 4; i++) strand([[s * (0.8 + i * 0.3), 0.9, 0.028], [s * (1.1 + i * 0.35), 0.5, 0.035], [s * (1.5 + i * 0.35), 0.35, 0.025]], 0.045, 0.01)
-      back(0.25, 7, 0.03)
-      const base = onHead(Math.PI, 0.45, 0.03)
+      const H = [1.0, 0.75, -0.4, 4]
+      add(hairShell({ r: HEAD_R + 0.024, bottom: -0.35, hole: oval(...H), holeSpec: H, flare: (az, el) => 1 + 0.03 * smoothstep(0.2, -0.3, el), mat: hairMat, rim: 0.016 }))
+      // poni nyamping + helai pembingkai muka
+      strand([[-0.55, 0.75, 0.04], [0.05, 0.5, 0.05], [0.62, 0.3, 0.025]], 0.065, 0.02)
+      strand([[-0.35, 0.82, 0.04], [0.25, 0.6, 0.045], [0.78, 0.42, 0.02]], 0.05, 0.015, shade)
+      for (const s of [-1, 1]) strand([[s * 1.0, 0.3, 0.03], [s * 1.08, -0.1, 0.04], [s * 1.05, -0.5, 0.03]], 0.035, 0.012)
+      const base = onHead(Math.PI, 0.5, 0.03)
       const tail = new THREE.Mesh(
-        tube([base, base.clone().add(new THREE.Vector3(0, 0.02, -0.1)), new THREE.Vector3(0, -0.2, -0.38), new THREE.Vector3(0, -0.5, -0.34)], 0.075, 0.02, 0, 20),
+        tube([base, base.clone().add(new THREE.Vector3(0, 0.03, -0.1)), new THREE.Vector3(0, -0.15, -0.4), new THREE.Vector3(0, -0.5, -0.36)], 0.09, 0.025, 0, 20),
         hairMat,
       )
       tail.castShadow = true
-      hair.add(tail)
-      const tie = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.014, 8, 16), mat('#d9534f', 0.5))
-      tie.position.copy(base).add(new THREE.Vector3(0, 0.0, -0.04))
-      tie.rotation.x = 0.4
-      hair.add(tie)
+      add(tail)
+      const tie = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.016, 8, 18), mat('#d9534f', 0.5))
+      tie.position.copy(base).add(new THREE.Vector3(0, 0.0, -0.05))
+      tie.rotation.x = 0.5
+      add(tie)
       break
     }
     case 'hijab': {
-      const cloth = mat(look.hijabColor, 0.9, { side: THREE.DoubleSide })
-      const r = HEAD_R + 0.025
-      const top = mesh(new THREE.SphereGeometry(r, 36, 12, 0, Math.PI * 2, 0, Math.PI * 0.4), cloth, hair)
-      top.scale.copy(HEAD_SCALE).multiplyScalar(1.03)
-      // sisi kepala, bagian muka dibiarin terbuka
-      const sides = mesh(new THREE.SphereGeometry(r, 36, 16, Math.PI / 2 + 0.78, Math.PI * 2 - 1.56, Math.PI * 0.4, Math.PI * 0.48), cloth, hair)
-      sides.scale.copy(HEAD_SCALE).multiplyScalar(1.03)
-      const chin = mesh(new THREE.SphereGeometry(r, 36, 8, 0, Math.PI * 2, Math.PI * 0.86, Math.PI * 0.14), cloth, hair)
-      chin.scale.copy(HEAD_SCALE).multiplyScalar(1.03)
-      // list kain di sekeliling wajah
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.018, 8, 28), cloth)
-      rim.position.set(0, -0.06, 0.18)
-      rim.scale.set(0.95, 1.2, 1)
-      rim.rotation.x = -0.12
-      hair.add(rim)
-      // jatuhan kain sampai bahu
-      const drape = mesh(new THREE.CylinderGeometry(0.2, 0.36, 0.3, 32, 1, true), cloth, hair, 0, -0.33, -0.01)
+      const cloth = mat(look.hijabColor, 0.92, { side: THREE.DoubleSide })
+      const H = [0.7, 0.5, -0.13, 2.6]
+      add(
+        hairShell({
+          r: HEAD_R + 0.035,
+          bottom: -Math.PI / 2,
+          hole: oval(...H),
+          holeSpec: H,
+          flare: (az, el) => 1 + 0.08 * smoothstep(-0.3, -1.2, el),
+          mat: cloth,
+          rim: 0.026,
+        }),
+      )
+      // jatuhan kain sampai dada, bentuknya kayak lonceng
+      const prof = [
+        [0.17, -0.2],
+        [0.24, -0.29],
+        [0.33, -0.4],
+        [0.38, -0.5],
+        [0.39, -0.56],
+      ].map(([r, y]) => new THREE.Vector2(r, y))
+      const drape = new THREE.Mesh(new THREE.LatheGeometry(prof, 40), cloth)
       drape.scale.z = 0.85
+      drape.castShadow = true
+      add(drape)
       break
     }
     default: {
-      // 'samping' -> gaya Ferdy
-      cap()
-      for (let i = 0; i <= 8; i++) {
-        const t = i / 8
+      // 'samping' -> gaya Ferdy: belah samping, poni nyapu ke kanan
+      const H = [1.05, 0.75, -0.38, 4]
+      add(hairShell({ r: HEAD_R + 0.018, bottom: -0.3, hole: oval(...H), holeSpec: H, flare: (az, el) => 1 + 0.04 * smoothstep(0.5, 1.3, el), mat: hairMat, rim: 0.016 }))
+      for (let i = 0; i <= 6; i++) {
+        const t = i / 6
         strand(
           [
-            [-0.9 + t * 0.6, 1.05 + Math.sin(t * Math.PI) * 0.1, 0.03],
-            [-0.55 + t * 1.0, 0.74 - t * 0.08, 0.07 - t * 0.025],
-            [-0.25 + t * 1.2, 0.36 - t * 0.14 + (i % 2) * 0.05, 0.016],
+            [-0.85 + t * 0.55, 1.05 + Math.sin(t * Math.PI) * 0.1, 0.035],
+            [-0.5 + t * 0.95, 0.74 - t * 0.08, 0.075 - t * 0.025],
+            [-0.2 + t * 1.15, 0.38 - t * 0.14 + (i % 2) * 0.05, 0.02],
           ],
-          0.055,
-          0.006,
+          0.068,
+          0.012,
+          i % 3 === 1 ? shade : hairMat,
         )
       }
-      for (let i = 0; i <= 7; i++) {
-        const t = i / 7
-        strand([[-0.85 + t * 0.1, 0.95 + t * 0.3, 0.03], [0.4 + t * 1.2, 1.25 - t * 0.1, 0.06], [1.3 + t * 1.6, 0.55 - t * 0.25, 0.02]], 0.05, 0.01)
-      }
-      for (let i = 0; i < 5; i++) strand([[-0.85 - i * 0.05, 0.92, 0.03], [-1.15 - i * 0.3, 0.6, 0.04], [-1.3 - i * 0.35, 0.12 - i * 0.05, 0.014]], 0.045, 0.008)
-      for (let i = 0; i < 4; i++) strand([[0.75 + i * 0.22, 0.85, 0.03], [1.0 + i * 0.22, 0.5, 0.045], [1.15 + i * 0.25, 0.05, 0.014]], 0.045, 0.008)
-      back()
+      for (let i = 0; i < 4; i++) strand([[-0.8, 1.0 + i * 0.08, 0.03], [0.3 + i * 0.5, 1.2 - i * 0.05, 0.06], [1.3 + i * 0.5, 0.55 - i * 0.08, 0.025]], 0.055, 0.015, i % 2 ? shade : hairMat)
     }
   }
 }
@@ -480,11 +573,21 @@ export class Player {
       const neck = mesh(new THREE.TorusGeometry(0.068, 0.014, 8, 20), mat(new THREE.Color(L.topColor).multiplyScalar(0.85), 0.85), this.torso, 0, 0.49, 0.01)
       neck.rotation.x = Math.PI / 2 - 0.15
     } else if (L.top === 'hoodie') {
-      const hood = mesh(new THREE.TorusGeometry(0.12, 0.05, 10, 20, Math.PI * 1.2), topMat, this.torso, 0, 0.5, -0.06)
-      hood.rotation.set(Math.PI / 2 + 0.25, 0, Math.PI * 1.4)
-      const pocket = mesh(new THREE.BoxGeometry(0.2, 0.08, 0.02), mat(new THREE.Color(L.topColor).multiplyScalar(0.85), 0.9), this.torso, 0, 0.2, 0.135)
+      const dark = mat(new THREE.Color(L.topColor).multiplyScalar(0.85), 0.95)
+      // kerah tudung yang tebal di sekeliling leher
+      const collar = mesh(new THREE.TorusGeometry(0.085, 0.035, 10, 24), topMat, this.torso, 0, 0.49, -0.01)
+      collar.rotation.x = Math.PI / 2 - 0.2
+      collar.scale.set(1.1, 1, 1)
+      // tudung rebah di punggung
+      const hood = mesh(new THREE.SphereGeometry(0.13, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.6), topMat, this.torso, 0, 0.44, -0.15)
+      hood.rotation.x = -2.2
+      hood.scale.set(1.15, 1, 0.75)
+      const inner = mesh(new THREE.SphereGeometry(0.1, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), dark, this.torso, 0, 0.455, -0.16)
+      inner.rotation.x = -2.2
+      inner.scale.set(1.1, 1, 0.6)
+      const pocket = mesh(new THREE.BoxGeometry(0.2, 0.08, 0.02), dark, this.torso, 0, 0.2, 0.135)
       pocket.rotation.x = -0.1
-      for (const s of [-1, 1]) mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.12, 6), mat('#f2efe8', 0.6), this.torso, s * 0.035, 0.42, 0.14)
+      for (const s of [-1, 1]) mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.12, 6), mat('#f2efe8', 0.6), this.torso, s * 0.035, 0.42, 0.142)
     }
     mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.08, 14), skin, this.torso, 0, 0.53, 0)
 

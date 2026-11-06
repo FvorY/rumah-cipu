@@ -9,7 +9,8 @@ import { signOwner, verifyOwner, guestName, OWNER_NAME } from './owner'
 // Kucing & kebun tetap lokal di masing-masing browser.
 
 const APP_ID = 'rumah-cipu.fvory'
-const ROOM_ID = 'rumah-utama-v1'
+// dev server pakai room terpisah biar nggak campur sama pengunjung asli
+const ROOM_ID = import.meta.env.DEV ? 'rumah-dev' : 'rumah-utama-v1'
 const SEND_HZ = 8
 
 const num = (v, min, max, def = 0) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : def)
