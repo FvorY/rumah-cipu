@@ -1,20 +1,27 @@
 import * as THREE from 'three'
-import { joinRoom, selfId } from 'trystero'
+import mqtt from 'mqtt'
 import { Player, sanitizeLook, DEFAULT_LOOK } from './player'
 import { labelTexture } from './textures'
 import { signOwner, verifyOwner, guestName, OWNER_NAME } from './owner'
 
-// Multiplayer peer-to-peer (WebRTC) lewat Trystero, nggak butuh server sendiri.
-// Yang disinkron: nama, tampilan karakter, posisi, arah, pose (duduk/tidur/dll).
-// Kucing & kebun tetap lokal di masing-masing browser.
+// Multiplayer lewat relay MQTT di atas WebSocket aman (wss).
+// Sebelumnya pakai WebRTC peer-to-peer, tapi itu sering gagal nyambung antar
+// jaringan seluler (CGNAT) atau di Wi-Fi yang sama. Lewat relay, tiap perangkat
+// cuma ngobrol ke broker pakai koneksi biasa, jadi jenis jaringannya nggak masalah.
+// Nyambung ke dua broker publik sekaligus; kalau satu diblok / mati, yang lain jalan.
+// Pesan dobel dari dua broker dibuang pakai nomor urut.
 
-const APP_ID = 'rumah-cipu.fvory'
+const BROKERS = ['wss://broker.hivemq.com:8884/mqtt', 'wss://broker.emqx.io:8084/mqtt']
 // dev server pakai room terpisah biar nggak campur sama pengunjung asli
 const ROOM_ID = import.meta.env.DEV ? 'rumah-dev' : 'rumah-utama-v1'
+const BASE = `rumah-cipu/v2/${ROOM_ID}`
 const SEND_HZ = 8
+const HELLO_EVERY = 25 // detik, sekalian perpanjang tanda tangan pemilik
+const OWNER_PROOF_MAX_AGE = 10 * 60 * 1000
 
 const num = (v, min, max, def = 0) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : def)
 const POSES = ['', 'sit', 'sleep', 'shower', 'cook']
+const randomId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 10)
 
 export const makeNameTag = (text, owner) => {
   const tex = labelTexture(owner ? `★ ${text} · pemilik rumah` : text, owner ? { bg: 'rgba(224,165,38,0.95)', fg: '#3b2f2a', size: 38 } : { size: 40 })
@@ -28,50 +35,120 @@ export class Net {
   constructor(game) {
     this.game = game
     this.peers = new Map()
-    this.room = null
+    this.clients = []
     this.ownerKey = null
+    this.id = randomId()
+    this.seq = 0
     this.sendT = 0
-    this.helloT = null
-  }
-
-  start(ownerKey = null) {
-    if (this.room) return
-    this.ownerKey = ownerKey
-    try {
-      this.room = joinRoom({ appId: APP_ID }, ROOM_ID)
-    } catch (e) {
-      console.warn('multiplayer nggak jalan:', e)
-      return
-    }
-    this.helloA = this.room.makeAction('hello')
-    this.stateA = this.room.makeAction('st')
-    this.helloA.onMessage = (data, meta) => this.onHello(data, meta?.peerId ?? meta)
-    this.stateA.onMessage = (data, meta) => this.onState(data, meta?.peerId ?? meta)
-    this.room.onPeerJoin = (id) => this.sendHello(id)
-    this.room.onPeerLeave = (id) => this.removePeer(id)
-    this.sendHello()
+    this.helloT = 0
+    this.announceT = null
+    this.started = false
+    this.onUnload = () => this.leave()
   }
 
   get selfId() {
-    return selfId
+    return this.id
   }
 
-  async sendHello(target) {
-    if (!this.room) return
-    const g = this.game
-    const payload = { name: g.profile.name, look: g.profile.look }
-    if (this.ownerKey) payload.owner = await signOwner(this.ownerKey, selfId)
+  start(ownerKey = null) {
+    if (this.started) return
+    this.started = true
+    this.ownerKey = ownerKey
+    this.setStatus('menyambung')
+    BROKERS.forEach((url) => this.connect(url))
+    window.addEventListener('pagehide', this.onUnload)
+  }
+
+  connect(url) {
+    let client
     try {
-      this.helloA.send(payload, target ? { target } : undefined)
+      client = mqtt.connect(url, {
+        clientId: `rc_${this.id}_${Math.random().toString(36).slice(2, 6)}`,
+        clean: true,
+        keepalive: 30,
+        connectTimeout: 10000,
+        reconnectPeriod: 4000,
+        // kalau koneksi putus mendadak, broker hapus "hello" kita sendiri
+        will: { topic: `${BASE}/hello/${this.id}`, payload: '', retain: true, qos: 0 },
+      })
     } catch (e) {
-      console.warn(e)
+      console.warn('broker gagal', url, e)
+      return
     }
+    client.on('connect', () => {
+      client.subscribe([`${BASE}/hello/+`, `${BASE}/st/+`], { qos: 0 })
+      this.sendHello(client)
+      this.refreshStatus()
+    })
+    client.on('message', (topic, buf) => this.onMessage(topic, buf))
+    for (const ev of ['close', 'offline', 'error']) client.on(ev, () => this.refreshStatus())
+    this.clients.push(client)
+  }
+
+  refreshStatus() {
+    if (!this.started) return
+    if (this.clients.some((c) => c.connected)) this.setStatus('terhubung')
+    else this.setStatus(navigator.onLine === false ? 'offline' : 'menyambung')
+  }
+
+  setStatus(s) {
+    this.game.ui.netStatus = s
+  }
+
+  publish(topic, payload, retain = false) {
+    const body = typeof payload === 'string' ? payload : JSON.stringify(payload)
+    for (const c of this.clients) {
+      if (!c.connected) continue
+      try {
+        c.publish(topic, body, { qos: 0, retain })
+      } catch {
+        // koneksi lagi putus, nanti dicoba lagi
+      }
+    }
+  }
+
+  async helloPayload() {
+    const g = this.game
+    const payload = { name: g.profile.name, look: g.profile.look, q: ++this.seq }
+    if (this.ownerKey) payload.owner = await signOwner(this.ownerKey, this.id)
+    return payload
+  }
+
+  async sendHello(onlyClient) {
+    if (!this.started) return
+    const body = JSON.stringify(await this.helloPayload())
+    const topic = `${BASE}/hello/${this.id}`
+    if (onlyClient) {
+      if (onlyClient.connected) onlyClient.publish(topic, body, { qos: 0, retain: true })
+    } else this.publish(topic, body, true)
   }
 
   // dipanggil tiap profil berubah (ganti baju dll), dikasih jeda biar nggak spam
   announce() {
-    clearTimeout(this.helloT)
-    this.helloT = setTimeout(() => this.sendHello(), 400)
+    clearTimeout(this.announceT)
+    this.announceT = setTimeout(() => this.sendHello(), 400)
+  }
+
+  onMessage(topic, buf) {
+    const parts = topic.split('/')
+    const kind = parts[3]
+    const id = parts[4]
+    if (!id || id === this.id || id.length > 24) return
+    // hello kosong = orangnya pergi
+    if (!buf || buf.length === 0) {
+      if (kind === 'hello') this.removePeer(id)
+      return
+    }
+    if (buf.length > 4000) return
+    let data
+    try {
+      data = JSON.parse(new TextDecoder().decode(buf))
+    } catch {
+      return
+    }
+    if (!data || typeof data !== 'object') return
+    if (kind === 'hello') this.onHello(data, id)
+    else if (kind === 'st') this.onState(data, id)
   }
 
   ensurePeer(id) {
@@ -80,10 +157,9 @@ export class Net {
     const player = new Player(DEFAULT_LOOK)
     player.root.visible = false
     this.game.scene.add(player.root)
-    p = { id, player, name: 'Tamu', owner: false, label: null, target: null, lastSeen: performance.now(), lookKey: '' }
+    p = { id, player, name: 'Tamu', owner: false, label: null, target: null, lastSeen: performance.now(), lookKey: '', lastQ: -1, named: false, announced: false }
     this.peers.set(id, p)
     this.setLabel(p)
-    this.syncCount()
     return p
   }
 
@@ -94,14 +170,14 @@ export class Net {
       p.label.material.dispose()
     }
     p.label = makeNameTag(p.name, p.owner)
+    p.label.visible = !!p.target
     this.game.scene.add(p.label)
   }
 
   async onHello(data, id) {
-    if (!data || typeof data !== 'object' || !id) return
     const p = this.ensurePeer(id)
-    p.lastSeen = performance.now()
-    const owner = data.owner ? await verifyOwner(id, data.owner) : false
+    const fresh = data.owner && Math.abs(Date.now() - num(data.owner.ts, 0, 1e15)) < OWNER_PROOF_MAX_AGE
+    const owner = fresh ? await verifyOwner(id, data.owner) : false
     const name = owner ? OWNER_NAME : guestName(data.name)
     const look = sanitizeLook(data.look)
     const lookKey = JSON.stringify(look)
@@ -109,22 +185,21 @@ export class Net {
       p.player.setLook(look)
       p.lookKey = lookKey
     }
-    if (name !== p.name || owner !== p.owner) {
-      const joinedNow = p.name === 'Tamu' && !p.announced
+    if (name !== p.name || owner !== p.owner || !p.named) {
       p.name = name
       p.owner = owner
+      p.named = !!(data.name || owner)
       this.setLabel(p)
-      if (joinedNow) {
-        p.announced = true
-        this.game.toast(owner ? 'Ferdy, si pemilik rumah, lagi di rumah.' : `${name} datang berkunjung.`)
-      }
     }
+    this.maybeAnnounce(p)
     this.syncCount()
   }
 
   onState(d, id) {
-    if (!d || typeof d !== 'object' || !id) return
     const p = this.ensurePeer(id)
+    const q = num(d.q, 0, 1e12, 0)
+    if (q <= p.lastQ) return // dobel dari broker kedua / telat
+    p.lastQ = q
     p.lastSeen = performance.now()
     const t = {
       x: num(d.x, -1, 8),
@@ -134,12 +209,23 @@ export class Net {
       s: num(d.s, 0, 3.5),
       p: POSES.includes(d.p) ? d.p : '',
     }
-    if (!p.target) {
+    const first = !p.target
+    p.target = t // harus di-set dulu sebelum hitung jumlah orang
+    if (first) {
       p.player.pos.set(t.x, t.y, t.z)
       p.player.facing = t.f
       p.player.root.visible = true
+      p.label.visible = true
+      this.maybeAnnounce(p)
+      this.syncCount()
     }
-    p.target = t
+  }
+
+  // kabarin "X datang" cuma kalau orangnya beneran aktif (udah punya nama & posisi)
+  maybeAnnounce(p) {
+    if (p.announced || !p.named || !p.target) return
+    p.announced = true
+    this.game.toast(p.owner ? 'Ferdy, si pemilik rumah, lagi di rumah.' : `${p.name} datang berkunjung.`)
   }
 
   removePeer(id) {
@@ -148,38 +234,40 @@ export class Net {
     this.game.scene.remove(p.player.root)
     if (p.label) this.game.scene.remove(p.label)
     this.peers.delete(id)
-    if (p.name !== 'Tamu') this.game.toast(`${p.name} pamit pulang.`)
+    if (p.announced) this.game.toast(`${p.name} pamit pulang.`)
     this.syncCount()
   }
 
   syncCount() {
     const ui = this.game.ui
-    ui.online = this.peers.size + 1
-    ui.others = [...this.peers.values()].map((p) => ({ id: p.id, name: p.name, owner: p.owner }))
+    const active = [...this.peers.values()].filter((p) => p.target)
+    ui.online = active.length + 1
+    ui.others = active.map((p) => ({ id: p.id, name: p.name, owner: p.owner }))
   }
 
   update(dt) {
-    if (!this.room) return
-    const g = this.game
-    const me = g.player
+    if (!this.started) return
+    const me = this.game.player
 
     // kirim posisi sendiri
     this.sendT -= dt
     if (this.sendT <= 0) {
       this.sendT = 1 / SEND_HZ
       const pose = me.pose || (me.seat ? 'sit' : '')
-      try {
-        this.stateA.send({
-          x: +me.pos.x.toFixed(3),
-          z: +me.pos.z.toFixed(3),
-          y: +me.pos.y.toFixed(3),
-          f: +me.facing.toFixed(3),
-          s: +me.speed.toFixed(2),
-          p: pose,
-        })
-      } catch {
-        // koneksi lagi putus, coba lagi frame berikutnya
-      }
+      this.publish(`${BASE}/st/${this.id}`, {
+        q: ++this.seq,
+        x: +me.pos.x.toFixed(3),
+        z: +me.pos.z.toFixed(3),
+        y: +me.pos.y.toFixed(3),
+        f: +me.facing.toFixed(3),
+        s: +me.speed.toFixed(2),
+        p: pose,
+      })
+    }
+    this.helloT -= dt
+    if (this.helloT <= 0) {
+      this.helloT = HELLO_EVERY
+      this.sendHello()
     }
 
     // gerakin pemain lain dengan halus
@@ -218,11 +306,18 @@ export class Net {
   }
 
   leave() {
-    try {
-      this.room?.leave()
-    } catch {
-      // abaikan
+    if (!this.started) return
+    // hapus hello kita biar langsung hilang di layar orang lain
+    this.publish(`${BASE}/hello/${this.id}`, '', true)
+    for (const c of this.clients) {
+      try {
+        c.end(false)
+      } catch {
+        // abaikan
+      }
     }
-    this.room = null
+    this.clients = []
+    this.started = false
+    window.removeEventListener('pagehide', this.onUnload)
   }
 }

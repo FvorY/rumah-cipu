@@ -94,6 +94,14 @@ watch(
   },
 )
 
+// status koneksi main bareng, biar kelihatan kalau nyambungnya gagal
+const netText = computed(() => {
+  if (ui.others.length) return ui.others.slice(0, 3).map((o) => (o.owner ? '★ ' : '') + o.name).join(', ') + (ui.others.length > 3 ? ` +${ui.others.length - 3}` : '')
+  if (ui.netStatus === 'terhubung') return 'online, nunggu yang lain masuk'
+  if (ui.netStatus === 'menyambung') return 'menyambung ke server...'
+  return 'offline, main sendiri dulu'
+})
+
 const harvestList = computed(() =>
   Object.entries(ui.harvested)
     .filter(([, n]) => n > 0)
@@ -117,9 +125,9 @@ const harvestList = computed(() =>
             <strong :key="ui.room">{{ ui.room || '...' }}</strong>
           </Transition>
         </div>
-        <div v-if="ui.online > 1" class="online panel" :title="ui.others.map((o) => o.name).join(', ')">
-          <i />{{ ui.online }} orang di rumah
-          <span class="names">{{ ui.others.slice(0, 3).map((o) => (o.owner ? '★ ' : '') + o.name).join(', ') }}{{ ui.others.length > 3 ? ` +${ui.others.length - 3}` : '' }}</span>
+        <div class="online panel" :class="ui.netStatus" :title="ui.others.map((o) => o.name).join(', ')">
+          <i />{{ ui.online > 1 ? `${ui.online} orang di rumah` : 'Cuma kamu di rumah' }}
+          <span class="names">{{ netText }}</span>
         </div>
         <div class="stash panel">
           <span class="stash-item"><i class="dot churu" />Churu {{ ui.churu }}</span>
@@ -267,6 +275,23 @@ const harvestList = computed(() =>
   border-radius: 50%;
   background: #4caf6e;
   box-shadow: 0 0 0 3px rgba(76, 175, 110, 0.25);
+}
+
+.online.menyambung i {
+  background: #e0a526;
+  box-shadow: 0 0 0 3px rgba(224, 165, 38, 0.25);
+  animation: blink 1s infinite;
+}
+
+.online.offline i {
+  background: #a39a92;
+  box-shadow: none;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.3;
+  }
 }
 
 .online .names {

@@ -19,5 +19,6 @@ export const ui = reactive({
   carrying: null,
   customizer: null,
   online: 1,
+  netStatus: 'offline',
   others: [],
 })

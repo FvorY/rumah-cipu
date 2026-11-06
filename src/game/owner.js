@@ -6,7 +6,7 @@
 import { safeStorage } from '../utils/storage'
 
 export const OWNER_NAME = 'Ferdy'
-const OWNER_PUB = 'GxE6FGQaWm-Ax8_J53CMO6L_Z996w_Eh9LwYSJSplqQ'
+const OWNER_PUB = 'Uvy7kFwQTOKWGeX086xTMPV198bMZaJEOH2bEn3cxdQ'
 const SALT = 'rumah-cipu/pemilik/v1'
 const STORE_KEY = 'rumah-cipu:pemilik'
 
@@ -43,19 +43,28 @@ export async function unlockOwner(passphrase, remember = true) {
   const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: new TextEncoder().encode(SALT), iterations: 210000 }, base, 256)
   const seed = new Uint8Array(bits)
   const key = await importSeed(seed)
-  // pastikan public key-nya sama dengan punya pemilik
-  const sig = await crypto.subtle.sign('Ed25519', key, message('cek', 0))
-  const ok = await crypto.subtle.verify('Ed25519', await ownerPublicKey(), sig, message('cek', 0))
-  if (!ok) return null
+  if (!(await matchesOwner(key))) return null
   if (remember) safeStorage.setItem(STORE_KEY, b64u.enc(seed))
   return key
+}
+
+// pastikan kunci ini memang pasangan public key pemilik
+const matchesOwner = async (key) => {
+  const sig = await crypto.subtle.sign('Ed25519', key, message('cek', 0))
+  return crypto.subtle.verify('Ed25519', await ownerPublicKey(), sig, message('cek', 0))
 }
 
 export async function restoreOwner() {
   const s = safeStorage.getItem(STORE_KEY)
   if (!s) return null
   try {
-    return await importSeed(b64u.dec(s))
+    const key = await importSeed(b64u.dec(s))
+    // kunci lama (sebelum diganti) -> buang, minta ketik ulang
+    if (!(await matchesOwner(key))) {
+      safeStorage.removeItem(STORE_KEY)
+      return null
+    }
+    return key
   } catch {
     return null
   }
