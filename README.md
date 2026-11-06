@@ -21,7 +21,7 @@ Kucing bisa dielus, digendong, dikasih churu (ambil di kulkas), dipanggil, atau 
 
 - `WASD` / panah: jalan, tahan `Shift` buat lari
 - drag: muter kamera, scroll: zoom
-- `E` interaksi, `F` gendong, `R` kasih churu, `C` panggil kucing
+- `E` interaksi, `Q` duduk / berdiri (sofa, kursi, kasur, jok motor), `F` gendong, `R` kasih churu, `C` panggil kucing
 - `T` tur rumah otomatis, `V` dinding rendah, `B` atap muncul/hilang, `M` suara
 - Klik ruangan di denah kecil (kanan atas) buat jalan otomatis ke sana
 - Tombol **Download denah** di bawah denah kecil: gambar kerja Denah Lantai 1 skala 1:100 (A4) lengkap dengan as, ukuran, pintu, jendela, dan peil lantai. Bisa diunduh PNG, SVG, atau dicetak ke PDF

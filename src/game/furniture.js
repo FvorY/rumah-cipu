@@ -346,16 +346,6 @@ const catBed = () => {
   return g
 }
 
-const rattanChair = () => {
-  const g = new THREE.Group()
-  const m = M('#a8783f', 0.9)
-  g.add(R(0.5, 0.06, 0.48, m, 0, 0.42, 0))
-  g.add(R(0.5, 0.45, 0.05, m, 0, 0.68, -0.22))
-  legs(g, 0.48, 0.46, 0.42, m, 0.04, 0.02)
-  g.add(R(0.44, 0.06, 0.4, M('#e9dcc0', 1), 0, 0.47, 0.02))
-  return g
-}
-
 const tree = () => {
   const g = new THREE.Group()
   const trunk = C(0.08, 0.13, 1.8, M('#7a5a3f', 1), 0, 0.9, 0, 10)
@@ -454,6 +444,23 @@ export function buildFurniture(scene, physics) {
     root.add(m)
   }
   const perch = (id, x, z, y, room) => perches.push({ id, x, z: -z, y, room })
+  // tempat duduk karakter: posisi pantat (denah), tinggi dudukan, arah hadap
+  const seats = []
+  const seat = (label, x, z, y, face) => seats.push({ label, x, z: -z, y, facing: Math.atan2(face[0], -face[1]) })
+  seat('Duduk di sofa', 4.85, 6.45, 0.43, [0, -1])
+  seat('Duduk di sofa', 5.27, 6.45, 0.43, [0, -1])
+  seat('Duduk di sofa', 5.7, 6.45, 0.43, [0, -1])
+  seat('Duduk di kursi', 6.55, 5.42, 0.43, [-1, 0])
+  seat('Duduk di sofa', 4.12, 7.95, 0.43, [1, 0])
+  seat('Duduk di sofa', 4.12, 9.08, 0.43, [1, 0])
+  seat('Duduk di kursi makan', 4.675, 13.38, 0.47, [0, -1])
+  seat('Duduk di kursi makan', 5.175, 13.38, 0.47, [0, -1])
+  seat('Duduk di kursi makan', 4.675, 12.27, 0.47, [0, 1])
+  seat('Duduk di kursi makan', 5.175, 12.27, 0.47, [0, 1])
+  seat('Duduk di meja kerja', 0.71, 2.72, 0.47, [0, -1])
+  seat('Duduk di kasur', 1.95, 3.83, 0.5, [1, 0])
+  seat('Duduk di kasur', 1.95, 10.75, 0.5, [1, 0])
+  seat('Duduk di kasur', 1.95, 15.25, 0.5, [1, 0])
   interactables.tvs = []
   // TV dinding di kamar tidur (menghadap kasur, dinding as 3)
   const bedroomTv = (z, y, w, standX) => {
@@ -676,17 +683,7 @@ export function buildFurniture(scene, physics) {
   put([4.6, 11.45, 4.95, 11.85], [-1, 0], dispenser)
 
   // ===== Teras =====
-  // kursi rotan mepet dinding kamar; sisi kanan teras buat parkir motor (motor.js)
-  const chairL = rattanChair()
-  chairL.scale.setScalar(0.86)
-  at(chairL, 3.29, 2.68, Math.PI / 2)
-  const chairR = rattanChair()
-  chairR.scale.setScalar(0.86)
-  at(chairR, 3.29, 3.55, Math.PI / 2)
-  at(coffeeTable(0.3, 0.3), 3.24, 3.12)
-  physics.addPlan(3.08, 2.45, 3.5, 3.78)
-  at(pottedPlant(1.1), 3.25, 2.2)
-  physics.addPlan(3.1, 2.06, 3.4, 2.36)
+  // teras dibiarin lega, sisi kanannya buat parkir motor (motor.js)
   // keset
   const mat = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.42), M('#8a6b4a', 1))
   mat.rotation.x = -Math.PI / 2
@@ -775,5 +772,5 @@ export function buildFurniture(scene, physics) {
   at(tap2, 6.88, 14.72, -Math.PI / 2)
   physics.addPlan(6.62, 14.58, 6.95, 14.9)
 
-  return { root, interactables, perches, tall, deco }
+  return { root, interactables, perches, tall, deco, seats }
 }

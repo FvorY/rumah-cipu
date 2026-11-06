@@ -100,7 +100,7 @@ const harvestList = computed(() =>
         <div v-if="showHelp" class="help panel" @click="showHelp = false">
           <p><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> jalan, tahan <span class="kbd">Shift</span> buat lari</p>
           <p>Drag layar buat muter kamera, scroll buat zoom</p>
-          <p><span class="kbd">E</span> interaksi &nbsp;<span class="kbd">F</span> gendong &nbsp;<span class="kbd">R</span> churu &nbsp;<span class="kbd">C</span> panggil</p>
+          <p><span class="kbd">E</span> interaksi &nbsp;<span class="kbd">Q</span> duduk / berdiri &nbsp;<span class="kbd">F</span> gendong &nbsp;<span class="kbd">R</span> churu &nbsp;<span class="kbd">C</span> panggil</p>
           <p><span class="kbd">T</span> tur rumah &nbsp;<span class="kbd">V</span> dinding rendah &nbsp;<span class="kbd">B</span> atap &nbsp;<span class="kbd">M</span> suara</p>
           <p class="muted">Klik ruangan di denah buat jalan otomatis ke sana.</p>
         </div>

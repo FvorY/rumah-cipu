@@ -219,10 +219,8 @@ function furniture() {
   f.push(circle(4.78, 11.65, 0.15, FURN))
   f.push(circle(4.9, 14.27, 0.12, FURN))
   // teras
-  f.push(rect(3.08, 2.47, 3.5, 2.89, `${FURN} rx="5"`) + rect(3.08, 3.34, 3.5, 3.76, `${FURN} rx="5"`) + rect(3.09, 2.97, 3.39, 3.27, FURN))
   // motor Vario di teras (tampak atas)
   f.push(rect(4.13, 2.36, 4.47, 4.24, `${FURN} rx="12"`) + rect(4.2, 2.42, 4.4, 2.78, THIN) + line(3.98, 2.82, 4.62, 2.82, 'stroke="#000" stroke-width="2"') + rect(4.18, 3.1, 4.42, 3.95, `${THIN} rx="8"`) + text(4.3, 3.5, 'MTR', 13, 'transform="rotate(-90 ' + X(4.3) + ' ' + Y(3.5) + ')"'))
-  f.push(circle(3.25, 2.2, 0.14, FURN))
   f.push(rect(3.98, 4.6, 4.32, 4.9, FURN))
   f.push(rect(4.38, 2.04, 4.56, 2.22, 'fill="#000"'))
   // carport: mobil + tanda silang carport seperti di denah asli

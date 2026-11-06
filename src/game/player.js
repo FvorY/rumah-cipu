@@ -228,18 +228,24 @@ export class Player {
     const pants = mat(PANTS, 0.85)
     const shoe = mat(SHOE, 0.6)
 
-    // kaki
+    // kaki: paha + lutut + betis, biar bisa duduk
     this.legs = []
+    this.knees = []
     for (const s of [-1, 1]) {
       const hip = new THREE.Group()
       hip.position.set(s * 0.085, 0.42, 0)
-      mesh(new THREE.CapsuleGeometry(0.072, 0.24, 6, 12), pants, hip, 0, -0.17, 0)
-      const sh = mesh(new THREE.SphereGeometry(0.08, 16, 12), shoe, hip, 0, -0.37, 0.03)
+      mesh(new THREE.CapsuleGeometry(0.073, 0.1, 6, 12), pants, hip, 0, -0.09, 0)
+      const knee = new THREE.Group()
+      knee.position.y = -0.19
+      hip.add(knee)
+      mesh(new THREE.CapsuleGeometry(0.07, 0.1, 6, 12), pants, knee, 0, -0.07, 0)
+      const sh = mesh(new THREE.SphereGeometry(0.08, 16, 12), shoe, knee, 0, -0.18, 0.03)
       sh.scale.set(0.95, 0.62, 1.45)
-      const sole = mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.02, 16), mat('#f2efe8', 0.8), hip, 0, -0.405, 0.03)
+      const sole = mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.02, 16), mat('#f2efe8', 0.8), knee, 0, -0.215, 0.03)
       sole.scale.set(1, 1, 1.5)
       this.body.add(hip)
       this.legs.push(hip)
+      this.knees.push(knee)
     }
 
     // badan
@@ -315,6 +321,7 @@ export class Player {
     this.action = null // { type, t, dur }
     this.carrying = null
     this.lookTarget = null
+    this.seat = null // kursi yang lagi didudukin
   }
 
   play(type, dur = 1.4) {
@@ -340,8 +347,16 @@ export class Player {
     const amt = Math.min(1, this.speed / 1.7)
     this.phase += dt * (4 + this.speed * 3.4)
     const sw = Math.sin(this.phase) * amt
-    this.legs[0].rotation.x = sw * 0.7
-    this.legs[1].rotation.x = -sw * 0.7
+    const sit = this.seat ? 1 : 0
+    const lk = 1 - Math.exp(-dt * 10)
+    const legTarget = [sw * 0.7, -sw * 0.7]
+    const kneeTarget = [Math.max(0, -sw) * 0.7 + 0.08 * amt, Math.max(0, sw) * 0.7 + 0.08 * amt]
+    for (let i = 0; i < 2; i++) {
+      const lt = sit ? -1.5 + (i ? 0.08 : -0.08) : legTarget[i]
+      const kt = sit ? 1.45 : kneeTarget[i]
+      this.legs[i].rotation.x += (lt - this.legs[i].rotation.x) * (sit ? lk : 1)
+      this.knees[i].rotation.x += (kt - this.knees[i].rotation.x) * (sit ? lk : 1)
+    }
     this.body.position.y = Math.abs(Math.cos(this.phase)) * 0.035 * amt
     this.torso.rotation.x = this.speed > 2 ? 0.12 : 0.03 * amt
     this.torso.rotation.y = sw * 0.08
@@ -388,6 +403,14 @@ export class Player {
         this.action = null
         this.can.visible = false
       }
+    }
+
+    if (this.seat && !this.action) {
+      // tangan istirahat di pangkuan
+      la = ra = -0.75
+      lz = 0.22
+      rz = -0.22
+      headPitch = 0.05
     }
 
     if (this.carrying) {

@@ -55,7 +55,7 @@ export const WALLS = [
   {
     a: [3, 10],
     b: [3, 16],
-    openings: [door(12.0, 12.8, [-1, 0], 'to'), door(13.2, 14.0, [-1, 0], 'from'), win(14.8, 15.7)],
+    openings: [door(11.66, 12.46, [-1, 0], 'to'), door(13.2, 14.0, [-1, 0], 'from'), win(14.8, 15.7)],
   },
   { a: [0, 13], b: [3, 13] },
 
@@ -63,8 +63,8 @@ export const WALLS = [
   { a: [5, 10], b: [5, 12], openings: [door(10.15, 10.9, [1, 0], 'from')] },
   { a: [5, 12], b: [7, 12] },
 
-  // as I - dapur ke taman belakang
-  { a: [3, 14.5], b: [7, 14.5], openings: [door(3.9, 4.8, [0, -1], 'from', 'belakang'), win(5.3, 6.1, 1.15, 1.95)] },
+  // as I - dapur ke taman belakang: pintu mepet dinding kiri, buka ke taman, jendela di sebelahnya
+  { a: [3, 14.5], b: [7, 14.5], openings: [door(3.15, 3.93, [0, 1], 'from', 'belakang'), win(4.03, 4.93)] },
 
   // pagar tembok taman belakang
   { a: [3, 16], b: [7, 16], h: 2.0 },

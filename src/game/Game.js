@@ -93,9 +93,11 @@ export class Game {
     }
     this.interactables.bowl.food = saved.bowl ?? 1
     this.perches = furn.perches
+    this.seats = furn.seats
     this.car = buildCar(scene, this.physics)
     this.motor = buildMotor(scene, this.physics)
     this.perches.push({ id: 'jokMotor', ...this.motor.seat, room: 'teras' })
+    this.seats.push({ label: 'Duduk di motor', x: this.motor.center.x, z: this.motor.center.z - 0.05, y: 0.84, facing: 0 })
     this.fence = buildFence(scene, this.physics)
     this.doors.push(...this.fence.gates)
     this.roof = buildRoof(scene, this.physics)
@@ -149,7 +151,7 @@ export class Game {
   }
 
   bindKeys() {
-    for (const k of ['e', 'f', 'r', 'c']) this.input.on(k, () => this.trigger(k.toUpperCase()))
+    for (const k of ['e', 'f', 'r', 'c', 'q']) this.input.on(k, () => this.trigger(k.toUpperCase()))
     this.input.on('v', () => this.toggleWalls())
     this.input.on('m', () => this.toggleMute())
     this.input.on('b', () => this.toggleRoof())
@@ -216,6 +218,7 @@ export class Game {
     const ax = input.axis()
     const manual = Math.abs(ax.x) + Math.abs(ax.y) > 0.05
     if (manual && this.auto) this.stopTour()
+    if (manual && player.seat) this.standUp()
     const move = new THREE.Vector3()
     let running = input.running
     if (manual) {
@@ -255,7 +258,7 @@ export class Game {
     }
     player.update(dt, move, running)
     if (move.lengthSq() > 0.0001) this.moveDir.copy(move).normalize()
-    if (player.speed > 0.01) {
+    if (player.speed > 0.01 && !player.seat) {
       const next = player.pos.clone().addScaledVector(this.moveDir, player.speed * dt)
       this.physics.resolve(next, player.radius)
       player.pos.x = next.x
@@ -330,6 +333,25 @@ export class Game {
     const acts = []
     const near = (x, z, r) => Math.hypot(p.x - x, p.z - z) < r
     const cands = []
+
+    if (this.player.seat) {
+      acts.push({ key: 'Q', label: 'Berdiri', run: () => this.standUp() })
+      acts.push({ key: 'C', label: 'Panggil kucing', run: () => this.callCats(), secondary: true })
+      return acts
+    }
+    if (!this.carrying) {
+      let best = null
+      let bestD = 0.85
+      for (const s of this.seats) {
+        const d = Math.hypot(p.x - s.x, p.z - s.z)
+        // kursi yang lagi ditempatin kucing nggak bisa didudukin
+        if (d < bestD && !this.cats.some((c) => c.perch && Math.hypot(c.pos.x - s.x, c.pos.z - s.z) < 0.3)) {
+          bestD = d
+          best = s
+        }
+      }
+      if (best) acts.push({ key: 'Q', label: best.label, run: () => this.sitDown(best) })
+    }
 
     if (this.carrying) {
       const cat = this.carrying
@@ -441,11 +463,32 @@ export class Game {
 
   trigger(key) {
     if (!this.ui.started || this.ui.seedPicker !== null) return
+    if (key === 'E' && this.player.seat) key = 'Q'
     const a = this.actions.find((x) => x.key === key && !x.disabled)
     if (a?.run) {
       a.run()
       this.syncUI(true)
     }
+  }
+
+  sitDown(seat) {
+    const pl = this.player
+    pl.seat = seat
+    pl.action = null
+    pl.speed = 0
+    pl.pos.set(seat.x, seat.y - 0.35, seat.z)
+    pl.facing = seat.facing
+  }
+
+  standUp() {
+    const pl = this.player
+    const s = pl.seat
+    if (!s) return
+    pl.seat = null
+    const spot =
+      this.navPlayer.nearestFree(s.x + Math.sin(s.facing) * 0.5, s.z + Math.cos(s.facing) * 0.5) ||
+      this.navPlayer.nearestFree(s.x, s.z) || { x: s.x, z: s.z }
+    pl.pos.set(spot.x, 0, spot.z)
   }
 
   pickCat(cat) {
@@ -625,6 +668,7 @@ export class Game {
     const room = ROOMS.find((r) => r.id === roomId)
     if (!room) return
     if (this.carrying) this.dropCat(this.carrying)
+    this.standUp()
     const [sx, sz] = room.spot
     const path = this.navPlayer.findPath({ x: this.player.pos.x, z: this.player.pos.z }, { x: sx, z: -sz })
     if (!path || path.length < 2) {
@@ -731,7 +775,7 @@ export class Game {
     const cats = {}
     for (const c of this.cats) cats[c.def.id] = c.save()
     writeSave({
-      player: [this.player.pos.x, -this.player.pos.z],
+      player: this.player.seat ? undefined : [this.player.pos.x, -this.player.pos.z],
       facing: this.player.facing,
       cats,
       garden: this.garden.save(),
