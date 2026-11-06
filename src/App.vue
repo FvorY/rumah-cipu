@@ -83,6 +83,7 @@ const harvestList = computed(() =>
           {{ ui.tour.active ? 'Stop tur' : 'Tur rumah' }}
         </button>
         <button class="chip-btn" :class="{ on: ui.lowWalls }" title="Dinding rendah (V)" @click="game.toggleWalls()">Dinding</button>
+        <button class="chip-btn" :class="{ on: ui.roofOn && !ui.lowWalls }" :title="ui.roofOn ? 'Sembunyikan atap (B)' : 'Munculkan atap (B)'" @click="game.toggleRoof()">Atap</button>
         <button class="chip-btn" :class="{ on: mapOpen }" @click="mapOpen = !mapOpen">Denah</button>
         <button class="chip-btn icon" :title="ui.muted ? 'Nyalakan suara (M)' : 'Matikan suara (M)'" @click="game.toggleMute()">
           <svg v-if="!ui.muted" viewBox="0 0 24 24" width="18" height="18"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" /><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" /></svg>
@@ -100,7 +101,7 @@ const harvestList = computed(() =>
           <p><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> jalan, tahan <span class="kbd">Shift</span> buat lari</p>
           <p>Drag layar buat muter kamera, scroll buat zoom</p>
           <p><span class="kbd">E</span> interaksi &nbsp;<span class="kbd">F</span> gendong &nbsp;<span class="kbd">R</span> churu &nbsp;<span class="kbd">C</span> panggil</p>
-          <p><span class="kbd">T</span> tur rumah &nbsp;<span class="kbd">V</span> dinding rendah &nbsp;<span class="kbd">M</span> suara</p>
+          <p><span class="kbd">T</span> tur rumah &nbsp;<span class="kbd">V</span> dinding rendah &nbsp;<span class="kbd">B</span> atap &nbsp;<span class="kbd">M</span> suara</p>
           <p class="muted">Klik ruangan di denah buat jalan otomatis ke sana.</p>
         </div>
       </Transition>

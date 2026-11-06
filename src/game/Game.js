@@ -117,6 +117,7 @@ export class Game {
     this.churu = saved.churu ?? 1
 
     this.ui.lowWalls = !!saved.lowWalls
+    this.ui.roofOn = saved.roofOn ?? true
     this.ui.muted = !!saved.muted
     sound.setMuted(this.ui.muted)
 
@@ -148,6 +149,7 @@ export class Game {
     for (const k of ['e', 'f', 'r', 'c']) this.input.on(k, () => this.trigger(k.toUpperCase()))
     this.input.on('v', () => this.toggleWalls())
     this.input.on('m', () => this.toggleMute())
+    this.input.on('b', () => this.toggleRoof())
     this.input.on('t', () => (this.tour ? this.stopTour() : this.startTour()))
     this.input.on('escape', () => {
       if (this.ui.seedPicker !== null) this.ui.seedPicker = null
@@ -297,18 +299,25 @@ export class Game {
     }
   }
 
-  // atap cuma kelihatan penuh kalau karakter lagi di luar rumah (depan)
+  // atap: kalau nyala, bagian yang nutupin karakter dari kamera dibikin tembus pandang
   roofTarget() {
-    if (this.ui.lowWalls) return { main: 0, front: 0, back: 0, canopy: 0 }
-    const p = this.player.pos
-    const room = roomAt(p.x, -p.z)?.id ?? 'jalan'
-    const outside = ['depan', 'carport', 'teras', 'jalan'].includes(room)
-    return {
-      main: outside ? 1 : 0,
-      back: outside ? 1 : 0,
-      front: outside && room !== 'teras' ? 1 : 0,
-      canopy: room === 'carport' ? 0 : 1,
+    const names = ['main', 'front', 'teras', 'back', 'canopy']
+    const out = {}
+    if (this.ui.lowWalls || !this.ui.roofOn) {
+      for (const n of names) out[n] = 0
+      return out
     }
+    const p = this.player.pos
+    const head = new THREE.Vector3(p.x, 1.1, p.z)
+    for (const n of names) {
+      const blocked = this.roof.occludes(n, head, this.camera.position)
+      out[n] = blocked ? (n === 'main' ? 0.07 : 0.2) : 1
+    }
+    return out
+  }
+
+  toggleRoof() {
+    this.ui.roofOn = !this.ui.roofOn
   }
 
   // ---------- interaksi ----------
@@ -700,6 +709,7 @@ export class Game {
       churu: this.churu,
       bowl: this.interactables.bowl.food,
       lowWalls: this.ui.lowWalls,
+      roofOn: this.ui.roofOn,
       muted: this.ui.muted,
     })
   }

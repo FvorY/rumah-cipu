@@ -1,6 +1,6 @@
 # Rumah Cipu
 
-Game kecil buat keliling rumah versi 3D, dibikin dari denah rumah 15x7 lantai 1. Di dalamnya ada empat kucing yang hidup sendiri-sendiri, Honda Mobilio di carport, sama halaman belakang yang bisa dipakai nanam sayur. Rumahnya pakai atap perisai genteng abu + dak beton di depan, pagar batu alam dengan bilah kayu, dan kanopi carport polikarbonat. Atapnya otomatis menghilang begitu masuk rumah.
+Game kecil buat keliling rumah versi 3D, dibikin dari denah rumah 15x7 lantai 1. Di dalamnya ada empat kucing yang hidup sendiri-sendiri, Honda Mobilio di carport, sama halaman belakang yang bisa dipakai nanam sayur. Rumahnya pakai atap perisai genteng abu + dak beton di depan, pagar batu alam dengan bilah kayu, dan kanopi carport polikarbonat. Atapnya bisa dimunculkan atau disembunyikan (tombol Atap), dan bagian yang nutupin karakter otomatis jadi tembus pandang.
 
 Main di sini: https://fvory.github.io/rumah-cipu/
 
@@ -22,7 +22,7 @@ Kucing bisa dielus, digendong, dikasih churu (ambil di kulkas), dipanggil, atau 
 - `WASD` / panah: jalan, tahan `Shift` buat lari
 - drag: muter kamera, scroll: zoom
 - `E` interaksi, `F` gendong, `R` kasih churu, `C` panggil kucing
-- `T` tur rumah otomatis, `V` dinding rendah, `M` suara
+- `T` tur rumah otomatis, `V` dinding rendah, `B` atap muncul/hilang, `M` suara
 - Klik ruangan di denah kecil (kanan atas) buat jalan otomatis ke sana
 - Tombol **Download denah** di bawah denah kecil: gambar kerja Denah Lantai 1 skala 1:100 (A4) lengkap dengan as, ukuran, pintu, jendela, dan peil lantai. Bisa diunduh PNG, SVG, atau dicetak ke PDF
 - `E` di depan pagar carport buat buka/tutup pagar

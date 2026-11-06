@@ -13,6 +13,7 @@ export const ui = reactive({
   seedPicker: null,
   tour: { active: false, caption: '', step: 0, total: 0 },
   lowWalls: false,
+  roofOn: true,
   muted: false,
   map: { player: { x: 0, z: 0, r: 0 }, cats: [] },
   carrying: null,
