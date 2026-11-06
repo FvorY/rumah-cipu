@@ -27,8 +27,8 @@ export const WALLS = [
 
   // as A - depan kamar utama
   { a: [0, 2], b: [3, 2], openings: [win(1.45, 2.5)] },
-  // kamar utama: sisi teras & ruang tamu
-  { a: [3, 2], b: [3, 6.5], openings: [win(2.7, 3.9)] },
+  // kamar utama: sisi teras & ruang tamu (tanpa jendela, dindingnya buat TV)
+  { a: [3, 2], b: [3, 6.5] },
   // as B - pintu utama + jendela ruang tamu
   {
     a: [3, 4.5],

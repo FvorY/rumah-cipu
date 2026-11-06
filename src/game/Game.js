@@ -379,7 +379,10 @@ export class Game {
       })
     }
     if (near(it.fridge.x, it.fridge.z, 1.0)) cands.push({ d: 0.5, act: { key: 'E', label: it.fridge.label, run: () => this.takeChuru() } })
-    if (near(it.tv.x, it.tv.z, 1.0)) cands.push({ d: 0.6, act: { key: 'E', label: it.tv.on ? 'Matikan TV' : 'Nyalakan TV', run: () => this.toggleTV() } })
+    for (const tv of it.tvs) {
+      const d = Math.hypot(p.x - tv.x, p.z - tv.z)
+      if (d < 1.0) cands.push({ d: 0.6 + d * 0.1, act: { key: 'E', label: tv.on ? 'Matikan TV' : 'Nyalakan TV', run: () => this.toggleTV(tv) } })
+    }
     if (near(it.laptop.x, it.laptop.z, 0.9)) cands.push({ d: 0.5, act: { key: 'E', label: it.laptop.label, run: () => this.toast(LAPTOP_LINES[Math.floor(Math.random() * LAPTOP_LINES.length)]) } })
 
     // mobil: cek jarak ke kotak body
@@ -517,8 +520,7 @@ export class Game {
     this.toast(`Bibit ${CROPS[crop].name.toLowerCase()} ditanam. Jangan lupa disiram.`)
   }
 
-  toggleTV() {
-    const tv = this.interactables.tv
+  toggleTV(tv = this.interactables.tv) {
     tv.on = !tv.on
     sound.click()
     if (tv.on) {
@@ -535,6 +537,10 @@ export class Game {
       tv.screenMat.color.set('#ffffff')
       tv.screenMat.emissiveIntensity = 0.9
       tv.screenMat.needsUpdate = true
+      if (tv !== this.interactables.tv) {
+        this.toast('Channel akuarium, versi kamar.')
+        return
+      }
       this.toast('Channel akuarium. Kucing-kucing mulai tertarik.')
       for (const c of this.cats) if (!c.busy && c.state !== 'sleep' && Math.random() < 0.6) setTimeout(() => c.goWatchTV(), Math.random() * 2000)
     } else {
@@ -547,8 +553,7 @@ export class Game {
   }
 
   updateTV(dt) {
-    const tv = this.interactables.tv
-    if (!tv.on) return
+    if (!this.interactables.tvs.some((t) => t.on)) return
     this.tvT = (this.tvT || 0) - dt
     if (this.tvT > 0) return
     this.tvT = 1 / 15

@@ -172,6 +172,8 @@ function furniture() {
   f.push(wardrobe(0.08, 5.3, 0.68, 6.42))
   f.push(table(0.12, 2.08, 1.3, 2.58))
   f.push(rect(0.5, 2.62, 0.92, 3.0, `${FURN} rx="6"`))
+  // TV dinding kamar utama + rak
+  f.push(rect(2.79, 3.23, 2.925, 4.43, FURN) + rect(2.88, 3.28, 2.925, 4.38, 'fill="#000"') + text(2.62, 3.83, 'TV', 14))
   // KM
   f.push(shower(0.08, 7.55, 0.85, 8.17))
   f.push(toilet(0.32, 6.95))
@@ -182,9 +184,11 @@ function furniture() {
   // kamar 2 & 3
   f.push(bed(0.1, 10.15, 2.15, 11.35, 1))
   f.push(wardrobe(0.08, 11.6, 0.68, 12.85))
+  f.push(rect(2.79, 10.25, 2.925, 11.25, FURN) + rect(2.88, 10.3, 2.925, 11.2, 'fill="#000"') + text(2.62, 10.75, 'TV', 14))
   f.push(bed(0.1, 14.65, 2.15, 15.88, 1))
   f.push(wardrobe(0.08, 13.12, 0.68, 14.35))
   f.push(table(2.45, 14.8, 2.9, 15.7))
+  f.push(rect(2.68, 15.01, 2.76, 15.69, 'fill="#000"') + text(2.3, 15.35, 'TV', 14))
   // ruang tamu
   f.push(sofa(4.5, 6.2, 6.05, 6.78, 'N'))
   f.push(table(4.65, 5.05, 5.9, 5.75))

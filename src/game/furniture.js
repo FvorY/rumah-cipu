@@ -198,6 +198,19 @@ const tvUnit = (w, d) => {
   return { g, screenMat }
 }
 
+// TV tipis (lokal: layar menghadap +z, titik tengah di tengah layar)
+const flatTv = (w) => {
+  const g = new THREE.Group()
+  const h = w * 0.58
+  g.add(R(w, h, 0.035, M('#151515', 0.4), 0, 0, 0, 0.008))
+  const screenMat = new THREE.MeshStandardMaterial({ color: '#0a0a0a', roughness: 0.2, emissive: '#000000' })
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.03, h - 0.03), screenMat)
+  screen.position.z = 0.019
+  g.add(screen)
+  g.add(B(0.03, 0.008, 0.006, M('#c33', 0.5, { emissive: '#900' }), w / 2 - 0.05, -h / 2 + 0.01, 0.02))
+  return { g, screenMat, h }
+}
+
 const counter = (w, d, withDoors = true) => {
   const g = new THREE.Group()
   g.add(B(w, 0.84, d - 0.02, M('#efe9de', 0.7), 0, 0.42, -0.01))
@@ -441,6 +454,14 @@ export function buildFurniture(scene, physics) {
     root.add(m)
   }
   const perch = (id, x, z, y, room) => perches.push({ id, x, z: -z, y, room })
+  interactables.tvs = []
+  // TV dinding di kamar tidur (menghadap kasur, dinding as 3)
+  const bedroomTv = (z, y, w, standX) => {
+    const t = flatTv(w)
+    at(t.g, 2.905, z, -Math.PI / 2, y)
+    interactables.tvs.push({ x: standX, z: -z, screenMat: t.screenMat, on: false })
+    return t
+  }
 
   // ===== Kamar tidur utama =====
   put([0.1, 3.0, 2.15, 4.65], [1, 0], (w, d) => bed(w, d, '#7f9fc2'))
@@ -457,6 +478,11 @@ export function buildFurniture(scene, physics) {
   put([0.12, 2.08, 1.3, 2.58], [0, 1], desk, { pad: 0 })
   interactables.laptop = { x: 0.6, z: -3.0, label: 'Lihat laptop' }
   rug(0.6, 4.75, 2.6, 6.3, rugTexture('#8ca6b8', '#eef1ea'))
+  bedroomTv(3.83, 1.2, 1.1, 2.5)
+  // rak gantung di bawah TV
+  at(B(0.14, 0.035, 1.2, M(WOOD, 0.55)), 2.855, 3.83, 0, 0.58)
+  at(B(0.08, 0.1, 0.14, M('#2b2b2b', 0.5)), 2.86, 3.45, 0, 0.65)
+  at(pottedPlant(0.45), 2.86, 4.25, 0, 0.6)
 
   // ===== Ruang tamu =====
   put([4.5, 6.2, 6.05, 6.78], [0, -1], (w, d) => sofa(w, d, '#7f8f6a'))
@@ -490,6 +516,7 @@ export function buildFurniture(scene, physics) {
   put([5.0, 8.2, 5.65, 8.85], [1, 0], (w, d) => coffeeTable(w, d))
   const tv = put([6.32, 7.6, 6.88, 9.45], [-1, 0], tvUnit)
   interactables.tv = { x: 5.95, z: -8.5, label: 'Nyalakan TV', screenMat: tv.screenMat, on: false }
+  interactables.tvs.unshift(interactables.tv)
   const painting2 = painting.clone()
   at(painting2, 5.6, 9.9, -Math.PI / 2, 1.6)
   deco.push({ object: painting2, y1: 1.95, rect: { minX: 5.19, maxX: 6.01, minZ: -9.95, maxZ: -9.85 } })
@@ -529,6 +556,8 @@ export function buildFurniture(scene, physics) {
   perch('kasur2', 1.3, 10.75, 0.5, 'kamar2')
   put([0.08, 11.6, 0.68, 12.85], [1, 0], wardrobe, { fade: 2.05 })
   rug(1.0, 11.5, 2.6, 12.7, rugTexture('#d8c49e', '#fff8e8'))
+  bedroomTv(10.75, 1.15, 0.9, 2.5)
+  at(B(0.14, 0.035, 1.0, M(WOOD_LIGHT, 0.55)), 2.855, 10.75, 0, 0.58)
 
   // ===== Kamar tidur 3 =====
   put([0.1, 14.65, 2.15, 15.88], [1, 0], (w, d) => bed(w, d, '#8fb38a'))
@@ -538,11 +567,22 @@ export function buildFurniture(scene, physics) {
     const g = new THREE.Group()
     g.add(B(w, 0.04, d, M(WOOD_LIGHT, 0.6), 0, 0.74, 0))
     legs(g, w, d, 0.72, M(WOOD_LIGHT, 0.6), 0.04, 0.02)
-    // tumpukan buku
+    // tumpukan buku di ujung meja
     const cols = ['#c94f4f', '#3f7cac', '#e0b04a']
-    cols.forEach((c, i) => g.add(B(0.2, 0.04, 0.28, M(c, 0.8), 0.05, 0.78 + i * 0.04, -0.15)))
+    cols.forEach((c, i) => g.add(B(0.2, 0.04, 0.24, M(c, 0.8), 0.33, 0.78 + i * 0.04, -0.05)))
     return g
   })
+  // kamar 3: jendelanya pas di depan kasur, jadi TV-nya pakai kaki di atas meja
+  {
+    const t = flatTv(0.68)
+    const stand = new THREE.Group()
+    stand.add(B(0.22, 0.015, 0.14, M('#1b1b1b', 0.4), 0, 0.008, 0))
+    stand.add(B(0.04, 0.09, 0.03, M('#1b1b1b', 0.4), 0, 0.06, -0.01))
+    t.g.position.y = 0.1 + t.h / 2
+    stand.add(t.g)
+    at(stand, 2.72, 15.35, -Math.PI / 2, 0.76)
+    interactables.tvs.push({ x: 2.3, z: -14.5, screenMat: t.screenMat, on: false })
+  }
 
   // ===== Ruang kucing =====
   at(catTree(), 6.55, 10.45)
