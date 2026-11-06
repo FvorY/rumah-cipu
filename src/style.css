@@ -1,0 +1,83 @@
+:root {
+  --paper: #f7f0e3;
+  --paper-2: #efe4d0;
+  --ink: #3b2f2a;
+  --ink-soft: #7a6a5f;
+  --accent: #d8704a;
+  --leaf: #5f8f43;
+  --line: rgba(59, 47, 42, 0.14);
+  --panel: rgba(250, 245, 236, 0.94);
+  --shadow: 0 1px 0 rgba(59, 47, 42, 0.1), 0 10px 28px -8px rgba(59, 47, 42, 0.28);
+  font-family: Nunito, ui-rounded, system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #d5e7ec;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.panel {
+  background: var(--panel);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 6px;
+  border: 1.5px solid var(--ink);
+  border-bottom-width: 3px;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  background: #fffaf1;
+}
+
+.chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 14px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  transition: transform 0.12s;
+}
+
+.chip-btn:active {
+  transform: scale(0.95);
+}
+
+.chip-btn.on {
+  background: var(--ink);
+  color: var(--paper);
+}
