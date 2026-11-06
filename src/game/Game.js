@@ -3,6 +3,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import { buildHouse, updateCutaway, updateDoors } from './house'
 import { buildFurniture } from './furniture'
 import { buildCar } from './car'
+import { buildFence } from './fence'
+import { buildRoof } from './roof'
 import { Physics } from './physics'
 import { NavGrid } from './nav'
 import { Player } from './player'
@@ -91,6 +93,9 @@ export class Game {
     this.interactables.bowl.food = saved.bowl ?? 1
     this.perches = furn.perches
     this.car = buildCar(scene, this.physics)
+    this.fence = buildFence(scene, this.physics)
+    this.doors.push(...this.fence.gates)
+    this.roof = buildRoof(scene, this.physics)
     this.perches.push({ id: 'carHood', ...this.car.hood, room: 'carport' })
     this.garden = new Garden(scene, this.physics, saved.garden)
     this.fx = new Fx(scene)
@@ -188,6 +193,8 @@ export class Game {
     for (const c of this.cats) c.update(dt)
     this.fx.update(dt)
     updateDoors(this.doors, this.cats.map((c) => c.pos), dt)
+    this.fence.update(dt)
+    this.roof.update(dt, {})
     updateCutaway(this.pieces, this.camera.position, new THREE.Vector3(3.5, -20, -7), dt, false)
   }
 
@@ -256,6 +263,8 @@ export class Game {
     const opened = updateDoors(this.doors, actors, dt)
     if (opened.length && opened.some((d) => d.center.distanceTo(new THREE.Vector2(player.pos.x, player.pos.z)) < 1.3)) sound.click()
     this.car.update(dt)
+    this.fence.update(dt)
+    this.roof.update(dt, this.roofTarget())
     if (this.garden.update(dt, this.time)) this.sound.pop(1.2)
     this.fx.update(dt)
     this.updateTV(dt)
@@ -285,6 +294,20 @@ export class Game {
     if (this.saveT <= 0) {
       this.saveT = 5
       this.save()
+    }
+  }
+
+  // atap cuma kelihatan penuh kalau karakter lagi di luar rumah (depan)
+  roofTarget() {
+    if (this.ui.lowWalls) return { main: 0, front: 0, back: 0, canopy: 0 }
+    const p = this.player.pos
+    const room = roomAt(p.x, -p.z)?.id ?? 'jalan'
+    const outside = ['depan', 'carport', 'teras', 'jalan'].includes(room)
+    return {
+      main: outside ? 1 : 0,
+      back: outside ? 1 : 0,
+      front: outside && room !== 'teras' ? 1 : 0,
+      canopy: room === 'carport' ? 0 : 1,
     }
   }
 
@@ -355,6 +378,24 @@ export class Game {
     const dx = Math.max(Math.abs(p.x - cc.x) - 0.86, 0)
     const dz = Math.max(Math.abs(p.z - cc.z) - 2.15, 0)
     if (Math.hypot(dx, dz) < 0.55) cands.push({ d: 0.7, act: { key: 'E', label: 'Bunyikan klakson', run: () => this.honk() } })
+
+    // pagar carport
+    const cg = this.fence.carGate
+    if (Math.abs(p.x - cg.center.x) < 1.3 && Math.abs(p.z - cg.center.z) < 0.9) {
+      cands.push({
+        d: 0.55,
+        act: {
+          key: 'E',
+          label: cg.target ? 'Tutup pagar' : 'Buka pagar',
+          run: () => {
+            const open = this.fence.toggleCarGate()
+            sound.click()
+            this.player.play('pick', 0.6)
+            this.toast(open ? 'Pagar carport dibuka.' : 'Pagar carport ditutup.')
+          },
+        },
+      })
+    }
 
     cands.sort((a, b) => a.d - b.d)
     if (cands.length) acts.unshift(cands[0].act)

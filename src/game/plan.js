@@ -48,7 +48,8 @@ export const WALLS = [
 
   // as F
   { a: [0, 10], b: [3, 10] },
-  { a: [4, 10], b: [7, 10] },
+  // sisi R. Kucing aja, bagian x 3-5 dibiarin terbuka ke lorong dapur
+  { a: [5, 10], b: [7, 10] },
 
   // as 3 bagian belakang: dua kamar tidur + jendela ke taman
   {
@@ -70,7 +71,6 @@ export const WALLS = [
   { a: [7, 14.5], b: [7, 16], h: 2.0 },
 
   // pagar depan & samping
-  { a: [0, 0], b: [3, 0], h: 0.9, kind: 'fence' },
   { a: [0, 0], b: [0, 2], h: 1.5, kind: 'fence' },
   { a: [7, 0], b: [7, 4.5], h: 1.5, kind: 'fence' },
 ]
@@ -104,14 +104,14 @@ export const roomAt = (x, z) => {
 
 // urutan room tour + caption pendek
 export const TOUR = [
-  { room: 'depan', text: 'Halaman depan. Pohonnya belum pernah berbuah, tapi lumayan teduh.' },
+  { room: 'depan', text: 'Halaman depan. Pagarnya kayu sama batu, pintu kecilnya kebuka sendiri.' },
   { room: 'carport', text: 'Carport, rumahnya si Mobilio. Coba pencet klakson, kucingnya pada kaget.' },
   { room: 'teras', text: 'Teras. Tempat ngopi sore sambil nunggu paket.' },
   { room: 'tamu', text: 'Ruang tamu, masuk dari pintu utama.' },
   { room: 'utama', text: 'Kamar tidur utama. Kasurnya sering diklaim Cipu.' },
   { room: 'km1', text: 'Kamar mandi dalam, pintunya langsung dari kamar utama.' },
   { room: 'keluarga', text: 'Ruang keluarga. TV-nya bisa dinyalain, kucing suka nonton ikan.' },
-  { room: 'km2', text: 'Kamar mandi satunya buat umum, lengkap sama bak mandi dan gayung.' },
+  { room: 'km2', text: 'Kamar mandi satunya buat umum. Dua-duanya pakai shower.' },
   { room: 'kucing', text: 'Ruang kucing: mangkuk makan, pasir, sama cat tree.' },
   { room: 'dapur', text: 'Dapur. Di kulkas ada churu, jangan bilang Gimbul.' },
   { room: 'kamar2', text: 'Kamar tidur kedua.' },

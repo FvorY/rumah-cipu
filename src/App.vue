@@ -9,11 +9,13 @@ import CatCard from './components/CatCard.vue'
 import PromptBar from './components/PromptBar.vue'
 import Joystick from './components/Joystick.vue'
 import SeedPicker from './components/SeedPicker.vue'
+import DenahModal from './components/DenahModal.vue'
 
 const canvas = ref(null)
 const isTouch = ref(false)
 const mapOpen = ref(true)
 const showHelp = ref(false)
+const showDenah = ref(false)
 let game = null
 
 onMounted(() => {
@@ -90,7 +92,7 @@ const harvestList = computed(() =>
       </div>
 
       <Transition name="slide">
-        <Minimap v-if="mapOpen" class="minimap" @go="(id) => game.goRoom(id)" />
+        <Minimap v-if="mapOpen" class="minimap" @go="(id) => game.goRoom(id)" @denah="showDenah = true" />
       </Transition>
 
       <Transition name="fade">
@@ -121,6 +123,7 @@ const harvestList = computed(() =>
       <PromptBar :prompts="ui.prompts" :touch="isTouch" @trigger="trigger" />
       <Joystick v-if="isTouch" @move="setJoy" />
 
+      <DenahModal v-if="showDenah" @close="showDenah = false" />
       <SeedPicker v-if="ui.seedPicker !== null" @pick="(c) => game.plantSeed(c)" @close="ui.seedPicker = null" />
     </template>
   </div>

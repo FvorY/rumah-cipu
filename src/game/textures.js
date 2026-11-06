@@ -374,3 +374,57 @@ export const paintingTexture = () =>
     }),
     false,
   )
+
+// genteng flat abu tua, 1 tekstur = 1.2m (4 baris)
+export const roofTexture = () =>
+  toTexture(
+    makeCanvas(256, 256, (g, w, h) => {
+      const r = rng(77)
+      const rows = 4
+      const rh = h / rows
+      for (let i = 0; i < rows; i++) {
+        const cols = 3
+        const cw = w / cols
+        const off = i % 2 ? cw / 2 : 0
+        for (let j = -1; j <= cols; j++) {
+          const c = new THREE.Color('#44484e')
+          c.offsetHSL(0, 0, (r() - 0.5) * 0.05)
+          g.fillStyle = `#${c.getHexString()}`
+          g.fillRect(j * cw + off + 1, i * rh, cw - 2, rh)
+          const grd = g.createLinearGradient(0, i * rh, 0, (i + 1) * rh)
+          grd.addColorStop(0, 'rgba(255,255,255,0.06)')
+          grd.addColorStop(0.8, 'rgba(0,0,0,0)')
+          grd.addColorStop(1, 'rgba(0,0,0,0.35)')
+          g.fillStyle = grd
+          g.fillRect(j * cw + off + 1, i * rh, cw - 2, rh)
+        }
+      }
+      speckle(g, w, h, r, 2500, ['#000000', '#ffffff'], 0.05, 2)
+    }),
+  )
+
+// batu alam buat pilar & dasar pagar
+export const stoneTexture = () =>
+  toTexture(
+    makeCanvas(256, 256, (g, w, h) => {
+      const r = rng(31)
+      g.fillStyle = '#3e3b37'
+      g.fillRect(0, 0, w, h)
+      let y = 0
+      while (y < h) {
+        const rh = 22 + r() * 26
+        let x = -r() * 40
+        while (x < w) {
+          const sw = 34 + r() * 60
+          const c = new THREE.Color(['#6b665f', '#7d776e', '#5c5852', '#8a8378'][Math.floor(r() * 4)])
+          g.fillStyle = `#${c.getHexString()}`
+          g.beginPath()
+          g.roundRect(x + 2, y + 2, sw - 4, rh - 4, 5)
+          g.fill()
+          x += sw
+        }
+        y += rh
+      }
+      speckle(g, w, h, r, 3000, ['#000000', '#d9d2c4'], 0.08, 2)
+    }),
+  )

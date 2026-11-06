@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { ui } from '../store'
 import { ROOMS, WALLS, WALL_T, roomAt } from '../game/plan'
 
-const emit = defineEmits(['go'])
+const emit = defineEmits(['go', 'denah'])
 const hover = ref(null)
 
 // svg: x = x denah, y = 16 - z (depan di bawah, sama kayak gambar denah)
@@ -121,7 +121,10 @@ const currentRoom = computed(() => roomAt(ui.map.player.x, ui.map.player.z)?.id)
         <path d="M0 -0.42 L0.16 -0.2 L-0.16 -0.2 Z" fill="#d8704a" />
       </g>
     </svg>
-    <p class="hint">klik ruangan buat ke sana</p>
+    <button class="dl" @click="emit('denah')">
+      <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      Download denah
+    </button>
   </div>
 </template>
 
@@ -162,20 +165,33 @@ svg {
   pointer-events: none;
 }
 
-.hint {
-  margin: 4px 0 0;
-  text-align: center;
-  font-size: 10px;
+.dl {
+  margin-top: 6px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 4px;
+  border-radius: 9px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 11.5px;
   font-weight: 800;
-  color: var(--ink-soft);
+  line-height: 1.1;
+  transition: transform 0.12s;
+}
+
+.dl:active {
+  transform: scale(0.95);
 }
 
 @media (max-width: 720px) {
   .map {
     width: 104px;
   }
-  .hint {
-    display: none;
+  .dl {
+    font-size: 10px;
   }
 }
 </style>

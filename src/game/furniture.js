@@ -236,19 +236,49 @@ const toilet = () => {
   return g
 }
 
-const bakMandi = (w, d) => {
+// area shower: tray, partisi kaca, shower head di dinding
+// glassSide = sisi lokal x yang dikasih kaca samping (-1 / 1)
+const shower = (glassSide) => (w, d) => {
   const g = new THREE.Group()
-  g.add(B(w, 0.72, d, M('#d7e9e6', 0.3), 0, 0.36, 0))
-  g.add(B(w - 0.12, 0.02, d - 0.12, new THREE.MeshStandardMaterial({ color: '#7fb9cf', roughness: 0.05, transparent: true, opacity: 0.85 }), 0, 0.64, 0))
-  // gayung
-  const gay = new THREE.Group()
-  gay.add(C(0.07, 0.06, 0.1, M('#3e8fd0', 0.5), 0, 0, 0))
-  const handle = C(0.012, 0.012, 0.22, M('#3e8fd0', 0.5), 0.13, 0.02, 0)
-  handle.rotation.z = Math.PI / 2 - 0.2
-  gay.add(handle)
-  gay.position.set(-w * 0.15, 0.7, 0)
-  gay.rotation.y = 0.6
-  g.add(gay)
+  const chrome = M('#d5d9dc', 0.15, { metalness: 0.9 })
+  g.add(B(w, 0.05, d, M('#f4f4f1', 0.3), 0, 0.025, 0))
+  g.add(B(0.09, 0.006, 0.09, M('#8f969a', 0.3, { metalness: 0.7 }), 0, 0.052, 0.04))
+  // pipa + kepala shower
+  g.add(C(0.012, 0.012, 1.0, chrome, 0, 1.45, -d / 2 + 0.035, 8))
+  const arm = C(0.01, 0.01, 0.2, chrome, 0, 1.95, -d / 2 + 0.13, 8)
+  arm.rotation.x = Math.PI / 2
+  g.add(arm)
+  const head = C(0.085, 0.06, 0.025, chrome, 0, 1.93, -d / 2 + 0.24, 24)
+  head.rotation.x = 0.35
+  g.add(head)
+  g.add(B(0.14, 0.08, 0.05, chrome, 0, 1.05, -d / 2 + 0.03))
+  g.add(B(0.02, 0.03, 0.07, chrome, 0.04, 1.05, -d / 2 + 0.07))
+  // rak sabun kecil
+  g.add(B(0.22, 0.02, 0.1, chrome, glassSide * -w * 0.22, 1.2, -d / 2 + 0.06))
+  g.add(C(0.025, 0.025, 0.12, M('#7fb8a4', 0.4), glassSide * -w * 0.27, 1.27, -d / 2 + 0.06, 12))
+  g.add(C(0.022, 0.022, 0.1, M('#f2c14e', 0.4), glassSide * -w * 0.16, 1.26, -d / 2 + 0.06, 12))
+  // kaca
+  const glass = new THREE.MeshStandardMaterial({
+    color: '#d4ebf1',
+    roughness: 0.05,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  })
+  const side = new THREE.Mesh(new THREE.BoxGeometry(0.012, 1.9, d - 0.02), glass)
+  side.position.set(glassSide * (w / 2 - 0.01), 1.0, 0)
+  g.add(side)
+  const fw = w * 0.55
+  const front = new THREE.Mesh(new THREE.BoxGeometry(fw, 1.9, 0.012), glass)
+  front.position.set(glassSide * (w / 2 - fw / 2), 1.0, d / 2 - 0.01)
+  g.add(front)
+  g.add(B(0.02, 0.02, d, chrome, glassSide * (w / 2 - 0.01), 1.95, 0))
+  g.add(B(fw, 0.02, 0.02, chrome, glassSide * (w / 2 - fw / 2), 1.95, d / 2 - 0.01))
+  // handuk di gantungan
+  const towel = R(0.05, 0.42, 0.26, M('#e9a56a', 1), -glassSide * (w / 2 - 0.03), 1.3, -d / 2 + 0.25, 0.02)
+  g.add(towel)
   return g
 }
 
@@ -481,14 +511,14 @@ export function buildFurniture(scene, physics) {
   deco.push({ object: clockWrap, y1: 2.1, rect: { minX: 2.0, maxX: 2.1, minZ: -8.76, maxZ: -8.44 } })
 
   // ===== Kamar mandi =====
-  // KM 1: pintu di bawah, bak mandi di pojok atas
-  put([0.08, 7.55, 0.85, 8.17], [1, 0], bakMandi)
+  // KM dalam: pintu dari kamar utama, shower di pojok atas
+  put([0.08, 7.55, 0.85, 8.17], [1, 0], shower(-1))
   at(toilet(), 0.32, 6.95, Math.PI / 2)
   physics.addPlan(0.08, 6.73, 0.6, 7.17)
   at(basin(), 1.35, 8.05, 0)
   physics.addPlan(1.13, 7.88, 1.57, 8.17)
   // KM 2: kebalikannya, pintu di atas
-  put([0.08, 8.33, 0.85, 8.95], [1, 0], bakMandi)
+  put([0.08, 8.33, 0.85, 8.95], [1, 0], shower(1))
   at(toilet(), 0.32, 9.55, Math.PI / 2)
   physics.addPlan(0.08, 9.33, 0.6, 9.77)
   at(basin(), 1.35, 8.45, Math.PI)
@@ -518,8 +548,8 @@ export function buildFurniture(scene, physics) {
   at(catTree(), 6.55, 10.45)
   physics.addPlan(6.25, 10.15, 6.88, 10.75, 'catTree')
   perch('catTree', 6.6, 10.5, 1.27, 'kucing')
-  at(catBed(), 5.75, 11.0)
-  perch('catBed', 5.75, 11.0, 0.06, 'kucing')
+  at(catBed(), 5.45, 11.2)
+  perch('catBed', 5.45, 11.2, 0.06, 'kucing')
   put([6.35, 11.3, 6.88, 11.88], [-1, 0], (w, d) => {
     const g = new THREE.Group()
     g.add(B(w, 0.16, d, M('#7fb7a7', 0.6), 0, 0.08, 0))
