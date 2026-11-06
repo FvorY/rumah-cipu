@@ -49,7 +49,7 @@ export const CATS = [
     speed: 0.68,
     voice: 1.2,
     hungerRate: 1 / 24,
-    likes: ['catTree', 'kursiTamu', 'kasur2'],
+    likes: ['catTree', 'kursiTamu', 'kasur2', 'jokMotor'],
     weights: { wander: 5, zoom: 3, nap: 1, sit: 1, groom: 1 },
     start: [5.9, 11.0],
   },

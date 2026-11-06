@@ -4,6 +4,7 @@ import { buildHouse, updateCutaway, updateDoors } from './house'
 import { buildFurniture } from './furniture'
 import { buildCar } from './car'
 import { buildFence } from './fence'
+import { buildMotor } from './motor'
 import { buildRoof } from './roof'
 import { Physics } from './physics'
 import { NavGrid } from './nav'
@@ -93,6 +94,8 @@ export class Game {
     this.interactables.bowl.food = saved.bowl ?? 1
     this.perches = furn.perches
     this.car = buildCar(scene, this.physics)
+    this.motor = buildMotor(scene, this.physics)
+    this.perches.push({ id: 'jokMotor', ...this.motor.seat, room: 'teras' })
     this.fence = buildFence(scene, this.physics)
     this.doors.push(...this.fence.gates)
     this.roof = buildRoof(scene, this.physics)
@@ -265,6 +268,7 @@ export class Game {
     const opened = updateDoors(this.doors, actors, dt)
     if (opened.length && opened.some((d) => d.center.distanceTo(new THREE.Vector2(player.pos.x, player.pos.z)) < 1.3)) sound.click()
     this.car.update(dt)
+    this.motor.update(dt)
     this.fence.update(dt)
     this.roof.update(dt, this.roofTarget())
     if (this.garden.update(dt, this.time)) this.sound.pop(1.2)
@@ -390,6 +394,26 @@ export class Game {
     const dx = Math.max(Math.abs(p.x - cc.x) - 0.86, 0)
     const dz = Math.max(Math.abs(p.z - cc.z) - 2.15, 0)
     if (Math.hypot(dx, dz) < 0.55) cands.push({ d: 0.7, act: { key: 'E', label: 'Bunyikan klakson', run: () => this.honk() } })
+
+    // motor: tombol smart key
+    const mc = this.motor.center
+    const mdx = Math.max(Math.abs(p.x - mc.x) - 0.2, 0)
+    const mdz = Math.max(Math.abs(p.z - mc.z) - 0.95, 0)
+    if (Math.hypot(mdx, mdz) < 0.6) {
+      cands.push({
+        d: 0.65,
+        act: {
+          key: 'E',
+          label: 'Pencet smart key',
+          run: () => {
+            this.player.play('honk', 0.6)
+            sound.beep()
+            this.motor.answerBack()
+            this.toast('Bip bip! Vario-nya jawab, seinnya kedip.')
+          },
+        },
+      })
+    }
 
     // pagar carport
     const cg = this.fence.carGate

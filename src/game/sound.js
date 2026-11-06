@@ -164,6 +164,23 @@ export const sound = {
     o.stop(t + 0.25)
   },
 
+  // bunyi "bip bip" answer back smart key
+  beep() {
+    if (!ensure() || muted) return
+    const t = ctx.currentTime
+    for (const start of [0, 0.16]) {
+      const o = ctx.createOscillator()
+      o.type = 'square'
+      o.frequency.value = 2350
+      const g = ctx.createGain()
+      env(g, t + start, 0.005, 0.12, 0.07, 0.03)
+      o.connect(g)
+      g.connect(master)
+      o.start(t + start)
+      o.stop(t + start + 0.14)
+    }
+  },
+
   click() {
     if (!ensure() || muted) return
     const t = ctx.currentTime

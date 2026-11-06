@@ -219,9 +219,11 @@ function furniture() {
   f.push(circle(4.78, 11.65, 0.15, FURN))
   f.push(circle(4.9, 14.27, 0.12, FURN))
   // teras
-  f.push(rect(3.15, 2.5, 3.58, 2.93, `${FURN} rx="5"`) + rect(3.15, 3.35, 3.58, 3.78, `${FURN} rx="5"`) + rect(3.13, 2.97, 3.47, 3.31, FURN))
+  f.push(rect(3.08, 2.47, 3.5, 2.89, `${FURN} rx="5"`) + rect(3.08, 3.34, 3.5, 3.76, `${FURN} rx="5"`) + rect(3.09, 2.97, 3.39, 3.27, FURN))
+  // motor Vario di teras (tampak atas)
+  f.push(rect(4.13, 2.36, 4.47, 4.24, `${FURN} rx="12"`) + rect(4.2, 2.42, 4.4, 2.78, THIN) + line(3.98, 2.82, 4.62, 2.82, 'stroke="#000" stroke-width="2"') + rect(4.18, 3.1, 4.42, 3.95, `${THIN} rx="8"`) + text(4.3, 3.5, 'MTR', 13, 'transform="rotate(-90 ' + X(4.3) + ' ' + Y(3.5) + ')"'))
   f.push(circle(3.25, 2.2, 0.14, FURN))
-  f.push(rect(4.31, 4.1, 4.57, 4.42, FURN))
+  f.push(rect(3.98, 4.6, 4.32, 4.9, FURN))
   f.push(rect(4.38, 2.04, 4.56, 2.22, 'fill="#000"'))
   // carport: mobil + tanda silang carport seperti di denah asli
   f.push(`<path d="M ${X(4.575)} ${Y(0)} L ${X(5.8)} ${Y(4.5)} L ${X(7)} ${Y(0)}" fill="none" stroke="#000" stroke-width="1.3"/>`)
@@ -266,7 +268,7 @@ function labels() {
     L(6.2, 10.95, 'R. KUCING', '± 0.00', 18),
     L(4.0, 14.95, 'TAMAN', '- 0.05', 18),
     L(5.8, 14.92, 'AREA JEMUR', '- 0.05', 16),
-    L(4.0, 3.15, 'TERAS', '± 0.00', 22),
+    L(3.8, 2.3, 'TERAS', '± 0.00', 18),
     L(5.8, 2.45, 'CARPORT', '± 0.00', 24),
   ].join('')
 }

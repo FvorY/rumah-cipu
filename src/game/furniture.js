@@ -676,15 +676,15 @@ export function buildFurniture(scene, physics) {
   put([4.6, 11.45, 4.95, 11.85], [-1, 0], dispenser)
 
   // ===== Teras =====
-  // kursi rotan nempel ke dinding kamar, sisain jalan ke pintu utama
+  // kursi rotan mepet dinding kamar; sisi kanan teras buat parkir motor (motor.js)
   const chairL = rattanChair()
   chairL.scale.setScalar(0.86)
-  at(chairL, 3.36, 2.72, Math.PI / 2)
+  at(chairL, 3.29, 2.68, Math.PI / 2)
   const chairR = rattanChair()
   chairR.scale.setScalar(0.86)
-  at(chairR, 3.36, 3.56, Math.PI / 2)
-  at(coffeeTable(0.34, 0.34), 3.3, 3.14)
-  physics.addPlan(3.08, 2.48, 3.62, 3.78)
+  at(chairR, 3.29, 3.55, Math.PI / 2)
+  at(coffeeTable(0.3, 0.3), 3.24, 3.12)
+  physics.addPlan(3.08, 2.45, 3.5, 3.78)
   at(pottedPlant(1.1), 3.25, 2.2)
   physics.addPlan(3.1, 2.06, 3.4, 2.36)
   // keset
@@ -692,8 +692,8 @@ export function buildFurniture(scene, physics) {
   mat.rotation.x = -Math.PI / 2
   mat.position.set(3.55, 0.016, -4.22)
   root.add(mat)
-  // rak sepatu di samping pintu
-  put([4.31, 4.1, 4.57, 4.42], [0, -1], (w, d) => {
+  // rak sepatu pindah ke dalam, di samping pintu utama
+  put([3.98, 4.6, 4.32, 4.9], [0, 1], (w, d) => {
     const g = new THREE.Group()
     const m = M(WOOD, 0.6)
     for (const y of [0.05, 0.25, 0.45]) g.add(B(w, 0.03, d, m, 0, y, 0))
