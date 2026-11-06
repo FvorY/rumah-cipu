@@ -292,6 +292,7 @@ export function buildCar(scene, physics, { x = 5.8, z = 2.3 } = {}) {
       if (isFront) frontSteerGroups.push(mount)
 
       const wheel = new THREE.Group()
+      wheel.name = 'spin'
       const tire = new THREE.Mesh(tireGeo, M('#1a1a1a', 0.85))
       tire.scale.z = 1.25
       wheel.add(tire)
@@ -341,6 +342,7 @@ export function buildCar(scene, physics, { x = 5.8, z = 2.3 } = {}) {
 
   return {
     group: car,
+    collider,
     get center() {
       return { x: car.position.x, z: car.position.z }
     },

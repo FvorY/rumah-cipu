@@ -26,5 +26,6 @@ export const ui = reactive({
   chatOpen: false,
   chatMessages: [],
   driving: null,
+  riding: null,
   neighborDialog: null,
 })

@@ -21,7 +21,7 @@ import { loadSave, writeSave } from '../utils/storage'
 import { Neighbor } from './neighbor'
 import { createNeighborHouse } from './neighborHouse'
 import { createDishModel } from './food'
-import { SEATED_HIP_HEIGHT, vehicleFacing } from './vehicle'
+import { SEATED_HIP_HEIGHT, vehicleFacing, vehicleExitPoint } from './vehicle'
 
 // titik aktivitas (koordinat denah)
 const SHOWERS = [
@@ -155,6 +155,7 @@ export class Game {
     this.neighbor = new Neighbor(scene, this.physics, this.neighborHouse.spots)
     this.currentDish = null
     this.drivingVehicle = null
+    this.riding = null // nebeng kendaraan pemain lain: { d: id sopir, t: tipe, s: kursi, ... }
 
     this.ui.lowWalls = !!saved.lowWalls
     this.ui.roofOn = saved.roofOn ?? true
@@ -310,6 +311,8 @@ export class Game {
       player.facing = this.motor.root.rotation.y
       player.seat = { onMotor: true, lean: this.motor.root.getObjectByName('bike').rotation.z }
       player.update(dt, new THREE.Vector3(), false)
+    } else if (this.riding) {
+      // posisi penumpang diatur Net.update setelah kendaraan sopirnya digerakin
     } else {
       if (manual) {
         const fx = -Math.sin(cam.yaw)
@@ -398,7 +401,7 @@ export class Game {
     if (this.selfTag) {
       const pl = this.player
       this.selfTag.position.set(pl.pos.x, pl.pos.y + (pl.pose === 'sleep' ? 0.6 : 1.78), pl.pos.z)
-      this.selfTag.visible = !this.ui.customizer && !this.drivingVehicle
+      this.selfTag.visible = !this.ui.customizer && !this.drivingVehicle && !this.riding
     }
 
     // kamera ngikutin
@@ -406,10 +409,11 @@ export class Game {
     let lookTarget = player.pos
     if (this.drivingVehicle === 'car') lookTarget = this.car.group.position
     else if (this.drivingVehicle === 'motor') lookTarget = this.motor.root.position
+    else if (this.riding?.lastRoot) lookTarget = this.riding.lastRoot.position
 
     cam.target.x += (lookTarget.x - cam.target.x) * k
     cam.target.z += (lookTarget.z - cam.target.z) * k
-    cam.target.y = this.drivingVehicle ? 1.05 : 0.85
+    cam.target.y = this.drivingVehicle || this.riding ? 1.05 : 0.85
     const cp = Math.cos(cam.pitch)
     this.camera.position.set(
       cam.target.x + Math.sin(cam.yaw) * cp * cam.dist,
@@ -459,6 +463,12 @@ export class Game {
     const acts = []
     const near = (x, z, r) => Math.hypot(p.x - x, p.z - z) < r
     const cands = []
+
+    if (this.riding) {
+      acts.push({ key: 'Q', label: this.riding.t === 'car' ? `Turun dari mobil ${this.riding.name}` : `Turun dari motor ${this.riding.name}`, run: () => this.stopRide() })
+      acts.push({ key: 'C', label: 'Panggil kucing', run: () => this.callCats(), secondary: true })
+      return acts
+    }
 
     if (this.drivingVehicle) {
       if (this.drivingVehicle === 'car') {
@@ -621,11 +631,30 @@ export class Game {
       }
     }
 
-    // mobil: kendarai / klakson / ajak tetangga
+    // nebeng mobil / motor yang lagi dikendarai pemain lain
+    for (const peer of this.net.peers.values()) {
+      if (!peer.vehicle || !peer.vehicleType) continue
+      const isCar = peer.vehicleType === 'car'
+      const vp = peer.vehicle.position
+      const dist = Math.hypot(p.x - vp.x, p.z - vp.z)
+      if (dist > (isCar ? 2.9 : 1.6)) continue
+      const full = this.net.freeSeat(peer.id, peer.vehicleType) < 0
+      cands.push({
+        d: 0.4 + dist * 0.01,
+        act: {
+          key: 'E',
+          label: full ? `${isCar ? 'Mobil' : 'Motor'} ${peer.name} penuh` : isCar ? `Nebeng mobil ${peer.name}` : `Bonceng motor ${peer.name}`,
+          disabled: full,
+          run: () => this.startRide(peer),
+        },
+      })
+    }
+
+    // mobil: kendarai / klakson / ajak tetangga (kalau nggak lagi dipakai pemain lain)
     const cc = this.car.center
     const dx = Math.max(Math.abs(p.x - cc.x) - 0.86, 0)
     const dz = Math.max(Math.abs(p.z - cc.z) - 2.15, 0)
-    if (Math.hypot(dx, dz) < 0.65) {
+    if (Math.hypot(dx, dz) < 0.65 && !this.net.remoteDriving('car')) {
       cands.push({ d: 0.6, act: { key: 'E', label: 'Kendarai Mobilio', run: () => this.startDrive('car') } })
       acts.push({ key: 'H', label: 'Bunyikan klakson', secondary: true, run: () => this.honk() })
       if (this.neighbor && !this.neighbor.isPassenger && Math.hypot(this.neighbor.pos.x - cc.x, this.neighbor.pos.z - cc.z) < 5.0) {
@@ -642,7 +671,7 @@ export class Game {
     const mc = this.motor.center
     const mdx = Math.max(Math.abs(p.x - mc.x) - 0.25, 0)
     const mdz = Math.max(Math.abs(p.z - mc.z) - 0.95, 0)
-    if (Math.hypot(mdx, mdz) < 0.65) {
+    if (Math.hypot(mdx, mdz) < 0.65 && !this.net.remoteDriving('motor')) {
       cands.push({
         d: 0.62,
         act: {
@@ -890,6 +919,11 @@ export class Game {
       this.toast('Pak Joko turun dari kendaraan.')
       return
     }
+    const seated = this.net.peerInSeat(veh, 0)
+    if (seated) {
+      this.toast(veh === 'car' ? `Kursi depan udah diisi ${seated.name}.` : `Boncengan udah diisi ${seated.name}.`)
+      return
+    }
     this.neighbor.enterVehicle(veh)
     if (veh === 'car') {
       this.toast('Pak Joko: Wah asik, nebeng Mobilio ya mas!')
@@ -898,7 +932,40 @@ export class Game {
     }
   }
 
+  startRide(peer) {
+    if (this.drivingVehicle) this.stopDrive()
+    this.standUp()
+    this.endActivity(true)
+    this.stopTour()
+    if (this.carrying) this.dropCat(this.carrying)
+    this.player.action = null
+    this.player.vy = 0
+    this.player.isGrounded = true
+    if (!this.net.board(peer)) {
+      this.toast(`Kendaraan ${peer.name} udah penuh.`)
+      return
+    }
+    this.ui.riding = { type: peer.vehicleType, name: peer.name }
+    sound.click()
+    this.toast(peer.vehicleType === 'car' ? `Nebeng mobil ${peer.name}. Q buat turun.` : `Dibonceng ${peer.name}. Q buat turun.`)
+  }
+
+  stopRide(msg) {
+    const r = this.riding
+    if (!r) return
+    this.riding = null
+    this.ui.riding = null
+    const pl = this.player
+    const pos = r.lastRoot ? vehicleExitPoint(r.lastRoot, r.t, r.s) : pl.pos.clone().setY(0)
+    pl.pos.copy(this.physics.resolve(pos, pl.radius))
+    pl.seat = null
+    pl.vy = 0
+    pl.isGrounded = true
+    this.toast(msg || 'Turun dari kendaraan.')
+  }
+
   startDrive(vehicle) {
+    if (this.riding) this.stopRide()
     if (this.drivingVehicle) this.stopDrive()
     this.standUp()
     this.endActivity(true)
@@ -945,11 +1012,7 @@ export class Game {
 
   vehicleExit(type, passenger = false) {
     const root = type === 'car' ? this.car.group : this.motor.root
-    root.updateWorldMatrix(true, false)
-    const side = passenger ? 1 : -1
-    const pos = (type === 'car' ? new THREE.Vector3(0.08, 0, side * 1.25) : new THREE.Vector3(side * 0.7, 0, -0.2)).applyMatrix4(root.matrixWorld)
-    pos.y = 0
-    return this.physics.resolve(pos, this.player.radius)
+    return this.physics.resolve(vehicleExitPoint(root, type, passenger ? 0 : false), this.player.radius)
   }
 
   greetPeer(peer) {
@@ -1062,7 +1125,7 @@ export class Game {
   standUp() {
     const pl = this.player
     const s = pl.seat
-    if (!s || this.drivingVehicle) return
+    if (!s || this.drivingVehicle || this.riding) return
     pl.seat = null
     const spot = this.spotInRoom(s.x, s.z, s.facing)
     pl.pos.set(spot.x, 0, spot.z)
@@ -1153,6 +1216,7 @@ export class Game {
   }
 
   jump() {
+    if (this.riding) return
     if (this.drivingVehicle) {
       if (this.drivingVehicle === 'car') this.honk()
       else if (this.drivingVehicle === 'motor') {

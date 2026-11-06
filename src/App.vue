@@ -183,7 +183,7 @@ const closePhotoPreview = () => {
 </script>
 
 <template>
-  <div class="app" :class="{ touch: isTouch, customizing: !!ui.customizer, photoActive: ui.photoMode, chatting: showChatLog, driving: !!ui.driving }" :style="{ '--hud-bottom': `${hudBottom}px` }">
+  <div class="app" :class="{ touch: isTouch, customizing: !!ui.customizer, photoActive: ui.photoMode, chatting: showChatLog, driving: !!ui.driving || !!ui.riding }" :style="{ '--hud-bottom': `${hudBottom}px` }">
     <canvas ref="canvas" class="scene" :class="photoFilter" />
 
     <Transition name="fade">
@@ -333,6 +333,15 @@ const closePhotoPreview = () => {
           <span><span class="kbd">A</span><span class="kbd">D</span> Belok</span>
           <span><span class="kbd">Shift</span> Ngebut</span>
           <span><span class="kbd">H</span> Klakson</span>
+          <span><span class="kbd">Q</span> Turun</span>
+        </div>
+      </div>
+
+      <div v-if="ui.riding && !ui.photoMode" class="driving-hud panel">
+        <div class="veh-title">
+          {{ ui.riding.type === 'car' ? `🚘 Nebeng mobil ${ui.riding.name}` : `🛵 Dibonceng ${ui.riding.name}` }}
+        </div>
+        <div class="veh-keys">
           <span><span class="kbd">Q</span> Turun</span>
         </div>
       </div>

@@ -67,9 +67,11 @@ export function buildMotor(scene, physics, { x = 4.3, z = 3.3 } = {}) {
 
   const R = 0.25
   const wf = wheel(R)
+  wf.name = 'spin'
   wf.position.set(0, R, 0.64)
   bike.add(wf)
   const wr = wheel(R)
+  wr.name = 'spin'
   wr.position.set(0, R, -0.64)
   bike.add(wr)
 
@@ -244,6 +246,7 @@ export function buildMotor(scene, physics, { x = 4.3, z = 3.3 } = {}) {
 
   return {
     root,
+    collider,
     get center() {
       return { x: root.position.x, z: root.position.z }
     },
