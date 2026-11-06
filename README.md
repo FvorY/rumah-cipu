@@ -2,6 +2,8 @@
 
 Game kecil buat keliling rumah versi 3D, dibikin dari denah rumah 15x7 lantai 1. Di dalamnya ada empat kucing yang hidup sendiri-sendiri, Honda Mobilio di carport, sama halaman belakang yang bisa dipakai nanam sayur.
 
+Main di sini: https://fvory.github.io/rumah-cipu/
+
 Pakai Vue 3 + Three.js. Semua model (rumah, karakter, kucing, mobil, tanaman) dibentuk dari primitive langsung di kode, suaranya juga disintesis pakai WebAudio, jadi nggak ada file aset yang perlu di-load.
 
 ## Kucing-kucingnya
@@ -34,7 +36,7 @@ npm run dev
 
 ## Deploy
 
-Ada workflow GitHub Pages di `.github/workflows/deploy.yml`. Buka Settings > Pages, pilih source "GitHub Actions", terus jalanin workflow `deploy` dari tab Actions. Build-nya pakai `base: './'` jadi aman di subfolder.
+Tiap push ke `main` otomatis di-deploy ke GitHub Pages lewat `.github/workflows/deploy.yml`. Build-nya pakai `base: './'` jadi aman di subfolder.
 
 ## Struktur
 

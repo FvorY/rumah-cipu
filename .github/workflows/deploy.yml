@@ -1,8 +1,8 @@
 name: deploy
 
-# jalanin manual dari tab Actions setelah repo public + Pages diset ke "GitHub Actions".
-# kalau mau auto deploy tiap push, tambahin lagi trigger push ke main.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
