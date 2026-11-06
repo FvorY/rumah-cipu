@@ -49,13 +49,14 @@ const walls = computed(() => {
 })
 
 const labels = computed(() =>
-  ROOMS.filter((r) => !['km2'].includes(r.id)).map((r) => {
+  ROOMS.map((r) => {
     const [x0, z0, x1, z1] = r.rects[r.rects.length > 1 && r.id === 'dapur' ? 1 : 0]
     const short = {
       utama: 'K. Utama',
       kamar2: 'K. Tidur',
       kamar3: 'K. Tidur',
       km1: 'KM',
+      km2: 'KM',
       keluarga: 'R. Keluarga',
       tamu: 'R. Tamu',
       kucing: 'R. Kucing',

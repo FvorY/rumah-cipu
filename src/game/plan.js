@@ -35,14 +35,14 @@ export const WALLS = [
     b: [7, 4.5],
     openings: [door(3.15, 3.95, [0, 1], 'from', 'depan'), win(4.75, 5.75), win(5.9, 6.85)],
   },
-  // as C - pintu kamar utama
-  { a: [0, 6.5], b: [3, 6.5], openings: [door(2.08, 2.88, [0, -1], 'to')] },
+  // as C - pintu kamar utama + pintu KM dalam (KM nyambung ke kamar utama)
+  { a: [0, 6.5], b: [3, 6.5], openings: [door(1.12, 1.85, [0, 1], 'to'), door(2.08, 2.88, [0, -1], 'to')] },
 
   // KM / WC
   {
     a: [1.95, 6.5],
     b: [1.95, 10],
-    openings: [door(6.62, 7.37, [-1, 0], 'from'), door(9.15, 9.9, [-1, 0], 'to')],
+    openings: [door(9.15, 9.9, [-1, 0], 'to')],
   },
   { a: [0, 8.25], b: [1.95, 8.25] },
 
@@ -83,8 +83,8 @@ export const ROOMS = [
   { id: 'utama', name: 'Kamar Tidur Utama', floor: 'wood', rects: [[0, 2, 3, 6.5]], spot: [2.3, 5.0] },
   { id: 'tamu', name: 'Ruang Tamu', floor: 'ceramic', rects: [[3, 4.5, 7, 6.85], [1.95, 6.5, 3, 7.6]], spot: [3.6, 5.6] },
   { id: 'keluarga', name: 'Ruang Keluarga', floor: 'ceramic', rects: [[3, 6.85, 7, 10], [1.95, 7.6, 3, 10]], spot: [3.4, 8.6] },
-  { id: 'km1', name: 'Kamar Mandi', floor: 'bath', rects: [[0, 6.5, 1.95, 8.25]], spot: [1.2, 7.4] },
-  { id: 'km2', name: 'Kamar Mandi 2', floor: 'bath', rects: [[0, 8.25, 1.95, 10]], spot: [1.2, 9.3] },
+  { id: 'km1', name: 'Kamar Mandi Dalam', floor: 'bath', rects: [[0, 6.5, 1.95, 8.25]], spot: [1.2, 7.4] },
+  { id: 'km2', name: 'Kamar Mandi', floor: 'bath', rects: [[0, 8.25, 1.95, 10]], spot: [1.2, 9.3] },
   { id: 'kamar2', name: 'Kamar Tidur 2', floor: 'wood', rects: [[0, 10, 3, 13]], spot: [2.3, 12.3] },
   { id: 'kamar3', name: 'Kamar Tidur 3', floor: 'woodLight', rects: [[0, 13, 3, 16]], spot: [2.2, 13.8] },
   { id: 'kucing', name: 'Ruang Kucing', floor: 'ceramic', rects: [[5, 10, 7, 12]], spot: [5.6, 10.9] },
@@ -109,8 +109,9 @@ export const TOUR = [
   { room: 'teras', text: 'Teras. Tempat ngopi sore sambil nunggu paket.' },
   { room: 'tamu', text: 'Ruang tamu, masuk dari pintu utama.' },
   { room: 'utama', text: 'Kamar tidur utama. Kasurnya sering diklaim Cipu.' },
+  { room: 'km1', text: 'Kamar mandi dalam, pintunya langsung dari kamar utama.' },
   { room: 'keluarga', text: 'Ruang keluarga. TV-nya bisa dinyalain, kucing suka nonton ikan.' },
-  { room: 'km1', text: 'Dua kamar mandi berjejer, lengkap sama bak mandi dan gayung.' },
+  { room: 'km2', text: 'Kamar mandi satunya buat umum, lengkap sama bak mandi dan gayung.' },
   { room: 'kucing', text: 'Ruang kucing: mangkuk makan, pasir, sama cat tree.' },
   { room: 'dapur', text: 'Dapur. Di kulkas ada churu, jangan bilang Gimbul.' },
   { room: 'kamar2', text: 'Kamar tidur kedua.' },
