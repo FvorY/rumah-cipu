@@ -76,7 +76,7 @@ export class Net {
       return
     }
     client.on('connect', () => {
-      client.subscribe([`${BASE}/hello/+`, `${BASE}/st/+`], { qos: 0 })
+      client.subscribe([`${BASE}/hello/+`, `${BASE}/st/+`, `${BASE}/chat/+`], { qos: 0 })
       this.sendHello(client)
       this.refreshStatus()
     })
@@ -149,6 +149,79 @@ export class Net {
     if (!data || typeof data !== 'object') return
     if (kind === 'hello') this.onHello(data, id)
     else if (kind === 'st') this.onState(data, id)
+    else if (kind === 'chat') this.onChat(data, id)
+  }
+
+  sendChat(text) {
+    if (!text || !text.trim()) return
+    const cleanText = text.trim().slice(0, 100)
+    const msg = {
+      name: this.game.profile.name || 'Tamu',
+      text: cleanText,
+      ts: Date.now(),
+    }
+    this.publish(`${BASE}/chat/${this.id}`, msg)
+    this.onChat(msg, this.id)
+  }
+
+  onChat(data, id) {
+    const text = String(data.text || '').slice(0, 100)
+    if (!text) return
+    const sender = String(data.name || 'Tamu').slice(0, 20)
+    const isSelf = id === this.id
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+    const list = this.game.ui.chatMessages
+    list.push({ id: Math.random().toString(36).slice(2), sender, text, time, self: isSelf })
+    if (list.length > 50) list.shift()
+
+    // Cari posisi kepala karakter untuk memunculkan bubble chat di 3D
+    let headTarget = null
+    if (isSelf) {
+      headTarget = this.game.player
+    } else {
+      const p = this.peers.get(id)
+      if (p) headTarget = p.player
+    }
+
+    if (headTarget) {
+      this.spawnChatBubble(headTarget, text)
+    }
+
+    // Jika Pak Joko dekat dan mendengar chat, ia bisa menimpali
+    if (this.game.neighbor && isSelf) {
+      const dist = Math.hypot(this.game.player.pos.x - this.game.neighbor.pos.x, this.game.player.pos.z - this.game.neighbor.pos.z)
+      if (dist < 6 && Math.random() < 0.6) {
+        setTimeout(() => {
+          if (!this.game.neighbor) return
+          const reply = 'Pak Joko: Wah seru banget ya ngobrolnya!'
+          list.push({ id: Math.random().toString(36).slice(2), sender: 'Pak Joko', text: 'Wah seru ya ngobrolnya!', time, self: false })
+          this.spawnChatBubble(this.game.neighbor.player, 'Wah seru ngobrolnya!')
+        }, 1200)
+      }
+    }
+  }
+
+  spawnChatBubble(targetPlayer, text) {
+    const shortText = text.length > 28 ? text.slice(0, 26) + '...' : text
+    const tex = labelTexture(`💬 ${shortText}`, { bg: 'rgba(255, 255, 255, 0.95)', fg: '#2b231d', size: 36 })
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }))
+    sprite.scale.set(1.4, 0.28, 1)
+    sprite.renderOrder = 15
+
+    const updatePos = () => {
+      sprite.position.set(targetPlayer.pos.x, targetPlayer.pos.y + (targetPlayer.pose === 'sleep' ? 0.9 : 2.15), targetPlayer.pos.z)
+    }
+    updatePos()
+    this.game.scene.add(sprite)
+
+    const interval = setInterval(updatePos, 50)
+    setTimeout(() => {
+      clearInterval(interval)
+      this.game.scene.remove(sprite)
+      sprite.material.map.dispose()
+      sprite.material.dispose()
+    }, 4500)
   }
 
   ensurePeer(id) {

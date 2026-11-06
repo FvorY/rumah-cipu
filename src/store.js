@@ -21,4 +21,9 @@ export const ui = reactive({
   online: 1,
   netStatus: 'offline',
   others: [],
+  photoMode: false,
+  chatOpen: false,
+  chatMessages: [],
+  driving: null,
+  neighborDialog: null,
 })

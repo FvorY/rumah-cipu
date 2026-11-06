@@ -18,6 +18,8 @@ import { Input } from './input'
 import { sound } from './sound'
 import { roomAt, ROOMS, TOUR } from './plan'
 import { loadSave, writeSave } from '../utils/storage'
+import { Neighbor } from './neighbor'
+import { createDishModel } from './food'
 
 // titik aktivitas (koordinat denah)
 const SHOWERS = [
@@ -140,6 +142,10 @@ export class Game {
     this.carrying = null
     this.churu = saved.churu ?? 1
 
+    this.neighbor = new Neighbor(scene, this.physics)
+    this.currentDish = null
+    this.drivingVehicle = null
+
     this.ui.lowWalls = !!saved.lowWalls
     this.ui.roofOn = saved.roofOn ?? true
     this.ui.muted = !!saved.muted
@@ -170,13 +176,14 @@ export class Game {
   }
 
   bindKeys() {
-    for (const k of ['e', 'f', 'r', 'c', 'q']) this.input.on(k, () => this.trigger(k.toUpperCase()))
+    for (const k of ['e', 'f', 'r', 'c', 'q', 'g', 'h', 't']) this.input.on(k, () => this.trigger(k.toUpperCase()))
     this.input.on('v', () => this.toggleWalls())
     this.input.on('m', () => this.toggleMute())
     this.input.on('b', () => this.toggleRoof())
-    this.input.on('t', () => (this.tour ? this.stopTour() : this.startTour()))
+    this.input.on('p', () => this.togglePhotoMode())
     this.input.on('escape', () => {
-      if (this.ui.seedPicker !== null) this.ui.seedPicker = null
+      if (this.ui.photoMode) this.ui.photoMode = false
+      else if (this.ui.seedPicker !== null) this.ui.seedPicker = null
       else this.stopTour()
     })
   }
@@ -265,53 +272,73 @@ export class Game {
     const manual = Math.abs(ax.x) + Math.abs(ax.y) > 0.05
     if (manual && this.auto) this.stopTour()
     if (manual && this.activity) this.endActivity(true)
-    if (manual && player.seat) this.standUp()
+    if (manual && player.seat && !this.drivingVehicle) this.standUp()
     this.updateActivity(dt)
     const move = new THREE.Vector3()
     let running = input.running
-    if (manual) {
-      const fx = -Math.sin(cam.yaw)
-      const fz = -Math.cos(cam.yaw)
-      const rx = Math.cos(cam.yaw)
-      const rz = -Math.sin(cam.yaw)
-      move.set(rx * ax.x + fx * ax.y, 0, rz * ax.x + fz * ax.y)
-    } else if (this.auto) {
-      const a = this.auto
-      const wp = a.path[a.i]
-      const dx = wp.x - player.pos.x
-      const dz = wp.z - player.pos.z
-      const d = Math.hypot(dx, dz)
-      if (d < 0.18) {
-        a.i++
-        if (a.i >= a.path.length) {
-          this.auto = null
-          a.done?.()
-        }
-      } else move.set(dx / d, 0, dz / d)
-      running = false
-      // kalau 2 detik nggak gerak, lompat ke waypoint berikutnya
-      if (this.auto) {
-        if (player.pos.distanceTo(a.last) < 0.02) a.stuck += dt
-        else a.stuck = 0
-        a.last.copy(player.pos)
-        if (a.stuck > 2) {
-          a.stuck = 0
+
+    if (this.drivingVehicle === 'car') {
+      this.car.drive(dt, ax.x, ax.y, running, this.physics)
+      const seatPos = this.car.driverSeat
+      player.pos.copy(seatPos)
+      player.facing = this.car.group.rotation.y - Math.PI / 2
+      player.seat = { inCar: true }
+      player.update(dt, new THREE.Vector3(), false)
+    } else if (this.drivingVehicle === 'motor') {
+      this.motor.drive(dt, ax.x, ax.y, running, this.physics)
+      const seatPos = this.motor.seat
+      player.pos.copy(seatPos)
+      player.facing = this.motor.root.rotation.y
+      player.seat = { onMotor: true }
+      player.update(dt, new THREE.Vector3(), false)
+    } else {
+      if (manual) {
+        const fx = -Math.sin(cam.yaw)
+        const fz = -Math.cos(cam.yaw)
+        const rx = Math.cos(cam.yaw)
+        const rz = -Math.sin(cam.yaw)
+        move.set(rx * ax.x + fx * ax.y, 0, rz * ax.x + fz * ax.y)
+      } else if (this.auto) {
+        const a = this.auto
+        const wp = a.path[a.i]
+        const dx = wp.x - player.pos.x
+        const dz = wp.z - player.pos.z
+        const d = Math.hypot(dx, dz)
+        if (d < 0.18) {
           a.i++
           if (a.i >= a.path.length) {
             this.auto = null
             a.done?.()
           }
+        } else move.set(dx / d, 0, dz / d)
+        running = false
+        // kalau 2 detik nggak gerak, lompat ke waypoint berikutnya
+        if (this.auto) {
+          if (player.pos.distanceTo(a.last) < 0.02) a.stuck += dt
+          else a.stuck = 0
+          a.last.copy(player.pos)
+          if (a.stuck > 2) {
+            a.stuck = 0
+            a.i++
+            if (a.i >= a.path.length) {
+              this.auto = null
+              a.done?.()
+            }
+          }
         }
       }
+      player.update(dt, move, running)
+      if (move.lengthSq() > 0.0001) this.moveDir.copy(move).normalize()
+      if (player.speed > 0.01 && !player.seat && !this.activity) {
+        const next = player.pos.clone().addScaledVector(this.moveDir, player.speed * dt)
+        this.physics.resolve(next, player.radius)
+        player.pos.x = next.x
+        player.pos.z = next.z
+      }
     }
-    player.update(dt, move, running)
-    if (move.lengthSq() > 0.0001) this.moveDir.copy(move).normalize()
-    if (player.speed > 0.01 && !player.seat && !this.activity) {
-      const next = player.pos.clone().addScaledVector(this.moveDir, player.speed * dt)
-      this.physics.resolve(next, player.radius)
-      player.pos.x = next.x
-      player.pos.z = next.z
-    }
+
+    // tetangga (Pak Joko)
+    this.neighbor.update(dt, player.pos, this.car, this.motor)
 
     // kucing, pintu, mobil, kebun
     for (const cat of this.cats) cat.update(dt)
@@ -329,14 +356,18 @@ export class Game {
     if (this.selfTag) {
       const pl = this.player
       this.selfTag.position.set(pl.pos.x, pl.pos.y + (pl.pose === 'sleep' ? 0.6 : 1.78), pl.pos.z)
-      this.selfTag.visible = !this.ui.customizer
+      this.selfTag.visible = !this.ui.customizer && !this.drivingVehicle
     }
 
     // kamera ngikutin
     const k = 1 - Math.exp(-dt * 6)
-    cam.target.x += (player.pos.x - cam.target.x) * k
-    cam.target.z += (player.pos.z - cam.target.z) * k
-    cam.target.y = 0.85
+    let lookTarget = player.pos
+    if (this.drivingVehicle === 'car') lookTarget = this.car.group.position
+    else if (this.drivingVehicle === 'motor') lookTarget = this.motor.root.position
+
+    cam.target.x += (lookTarget.x - cam.target.x) * k
+    cam.target.z += (lookTarget.z - cam.target.z) * k
+    cam.target.y = this.drivingVehicle ? 1.05 : 0.85
     const cp = Math.cos(cam.pitch)
     this.camera.position.set(
       cam.target.x + Math.sin(cam.yaw) * cp * cam.dist,
@@ -388,6 +419,29 @@ export class Game {
     const near = (x, z, r) => Math.hypot(p.x - x, p.z - z) < r
     const cands = []
 
+    if (this.drivingVehicle) {
+      if (this.drivingVehicle === 'car') {
+        acts.push({ key: 'Q', label: 'Turun dari Mobilio', run: () => this.stopDrive() })
+        acts.push({ key: 'H', label: 'Klakson', run: () => this.honk() })
+        if (this.neighbor && !this.neighbor.isPassenger) {
+          const dN = Math.hypot(p.x - this.neighbor.pos.x, p.z - this.neighbor.pos.z)
+          if (dN < 5.0) acts.push({ key: 'G', label: 'Ajak Pak Joko nebeng mobil', run: () => this.inviteNeighborToVehicle('car') })
+        } else if (this.neighbor && this.neighbor.isPassenger) {
+          acts.push({ key: 'G', label: 'Minta Pak Joko turun', run: () => this.inviteNeighborToVehicle('car') })
+        }
+      } else if (this.drivingVehicle === 'motor') {
+        acts.push({ key: 'Q', label: 'Turun dari Vario', run: () => this.stopDrive() })
+        acts.push({ key: 'H', label: 'Klakson', run: () => { sound.beep(); this.motor.answerBack(); } })
+        if (this.neighbor && !this.neighbor.isPassenger) {
+          const dN = Math.hypot(p.x - this.neighbor.pos.x, p.z - this.neighbor.pos.z)
+          if (dN < 5.0) acts.push({ key: 'G', label: 'Ajak Pak Joko boncengan', run: () => this.inviteNeighborToVehicle('motor') })
+        } else if (this.neighbor && this.neighbor.isPassenger) {
+          acts.push({ key: 'G', label: 'Minta Pak Joko turun', run: () => this.inviteNeighborToVehicle('motor') })
+        }
+      }
+      return acts
+    }
+
     if (this.activity) {
       const a = this.activity
       const label = { shower: 'Selesai mandi', cook: 'Udahan masak', sleep: 'Bangun' }[a.type]
@@ -405,8 +459,13 @@ export class Game {
       let bestD = 0.85
       for (const s of this.seats) {
         const d = Math.hypot(p.x - s.x, p.z - s.z)
-        // kursi yang lagi ditempatin kucing nggak bisa didudukin
-        if (d < bestD && !this.cats.some((c) => c.perch && Math.hypot(c.pos.x - s.x, c.pos.z - s.z) < 0.3)) {
+        // kursi yang lagi ditempatin kucing, pemain lain, atau tetangga dilewati biar bisa duduk sebelahan
+        const catOnSeat = this.cats.some((c) => c.perch && Math.hypot(c.pos.x - s.x, c.pos.z - s.z) < 0.35)
+        const peerOnSeat = [...this.net.peers.values()].some((peer) => peer.target && Math.hypot(peer.player.pos.x - s.x, peer.player.pos.z - s.z) < 0.35)
+        const neighborOnSeat = this.neighbor && Math.hypot(this.neighbor.pos.x - s.x, this.neighbor.pos.z - s.z) < 0.35
+        if (catOnSeat || peerOnSeat || neighborOnSeat) continue
+
+        if (d < bestD) {
           bestD = d
           best = s
         }
@@ -472,35 +531,99 @@ export class Game {
     }
     if (near(it.laptop.x, it.laptop.z, 0.9)) cands.push({ d: 0.5, act: { key: 'E', label: it.laptop.label, run: () => this.toast(LAPTOP_LINES[Math.floor(Math.random() * LAPTOP_LINES.length)]) } })
 
-    // mobil: cek jarak ke kotak body
+    // makanan matang di meja makan
+    if (this.currentDish) {
+      const dDish = Math.hypot(p.x - this.currentDish.x, p.z - this.currentDish.z)
+      if (dDish < 1.45) {
+        cands.push({
+          d: 0.38,
+          act: {
+            key: 'E',
+            label: `Makan ${this.currentDish.name}`,
+            run: () => this.eatDish(),
+          },
+        })
+      }
+    }
+
+    // interaksi dengan pemain lain (multiplayer)
+    for (const peer of this.net.peers.values()) {
+      if (!peer.target) continue
+      const dPeer = Math.hypot(p.x - peer.player.pos.x, p.z - peer.player.pos.z)
+      if (dPeer < 2.0) {
+        cands.push({
+          d: 0.44,
+          act: {
+            key: 'E',
+            label: `Sapa ${peer.name}`,
+            run: () => this.greetPeer(peer),
+          },
+        })
+      }
+    }
+
+    // tetangga (Pak Joko) di depan
+    if (this.neighbor && !this.neighbor.isPassenger) {
+      const dN = Math.hypot(p.x - this.neighbor.pos.x, p.z - this.neighbor.pos.z)
+      if (dN < 2.4) {
+        cands.push({
+          d: 0.46,
+          act: {
+            key: 'E',
+            label: 'Sapa Pak Joko',
+            run: () => this.talkToNeighbor(),
+          },
+        })
+        if (this.currentDish) {
+          acts.push({ key: 'T', label: `Beri ${this.currentDish.name} ke Pak Joko`, run: () => this.giveDishToNeighbor() })
+        }
+      }
+    }
+
+    // mobil: kendarai / klakson / ajak tetangga
     const cc = this.car.center
     const dx = Math.max(Math.abs(p.x - cc.x) - 0.86, 0)
     const dz = Math.max(Math.abs(p.z - cc.z) - 2.15, 0)
-    if (Math.hypot(dx, dz) < 0.55) cands.push({ d: 0.7, act: { key: 'E', label: 'Bunyikan klakson', run: () => this.honk() } })
+    if (Math.hypot(dx, dz) < 0.65) {
+      cands.push({ d: 0.6, act: { key: 'E', label: 'Kendarai Mobilio', run: () => this.startDrive('car') } })
+      acts.push({ key: 'H', label: 'Bunyikan klakson', secondary: true, run: () => this.honk() })
+      if (this.neighbor && !this.neighbor.isPassenger && Math.hypot(this.neighbor.pos.x - cc.x, this.neighbor.pos.z - cc.z) < 5.0) {
+        acts.push({ key: 'G', label: 'Ajak Pak Joko naik mobil', secondary: true, run: () => this.inviteNeighborToVehicle('car') })
+      }
+    }
 
     // aktivitas harian
     for (const sh of SHOWERS) if (near(sh.x, -sh.z, 1.0)) cands.push({ d: 0.45, act: { key: 'E', label: 'Mandi', run: () => this.startShower(sh) } })
     if (near(STOVE.x, -STOVE.z, 0.9)) cands.push({ d: 0.45, act: { key: 'E', label: 'Masak', run: () => this.startCook() } })
     for (const w of WARDROBES) if (near(w.x, -w.z, 0.8)) cands.push({ d: 0.4, act: { key: 'E', label: 'Ganti baju', run: () => this.openWardrobe(w) } })
 
-    // motor: tombol smart key
+    // motor: kendarai / smart key / ajak tetangga
     const mc = this.motor.center
-    const mdx = Math.max(Math.abs(p.x - mc.x) - 0.2, 0)
+    const mdx = Math.max(Math.abs(p.x - mc.x) - 0.25, 0)
     const mdz = Math.max(Math.abs(p.z - mc.z) - 0.95, 0)
-    if (Math.hypot(mdx, mdz) < 0.6) {
+    if (Math.hypot(mdx, mdz) < 0.65) {
       cands.push({
-        d: 0.65,
+        d: 0.62,
         act: {
           key: 'E',
-          label: 'Pencet smart key',
-          run: () => {
-            this.player.play('honk', 0.6)
-            sound.beep()
-            this.motor.answerBack()
-            this.toast('Bip bip! Vario-nya jawab, seinnya kedip.')
-          },
+          label: 'Kendarai Vario 150',
+          run: () => this.startDrive('motor'),
         },
       })
+      acts.push({
+        key: 'H',
+        label: 'Pencet smart key',
+        secondary: true,
+        run: () => {
+          this.player.play('honk', 0.6)
+          sound.beep()
+          this.motor.answerBack()
+          this.toast('Bip bip! Vario-nya jawab, seinnya kedip.')
+        },
+      })
+      if (this.neighbor && !this.neighbor.isPassenger && Math.hypot(this.neighbor.pos.x - mc.x, this.neighbor.pos.z - mc.z) < 5.0) {
+        acts.push({ key: 'G', label: 'Ajak Pak Joko boncengan', secondary: true, run: () => this.inviteNeighborToVehicle('motor') })
+      }
     }
 
     // pagar carport
@@ -565,7 +688,20 @@ export class Game {
     this.activity = { type: 'sleep', t: 0, dur: Infinity, seat, fx: 0 }
     pl.seat = null
     pl.pose = 'sleep'
-    pl.pos.set(1.65, 0.64, seat.z)
+
+    // Slot tidur ganda agar pemain lain yang tidur di kasur sama bisa sebelahan
+    const slotA = seat.z - 0.38
+    const slotB = seat.z + 0.38
+    const peersSleeping = [...this.net.peers.values()].filter((pr) => pr.player.pose === 'sleep')
+    const peerAtA = peersSleeping.some((pr) => Math.hypot(pr.player.pos.x - 1.65, pr.player.pos.z - slotA) < 0.4)
+    const peerAtB = peersSleeping.some((pr) => Math.hypot(pr.player.pos.x - 1.65, pr.player.pos.z - slotB) < 0.4)
+
+    let targetZ = seat.z
+    if (peerAtA && !peerAtB) targetZ = slotB
+    else if (peerAtB && !peerAtA) targetZ = slotA
+    else targetZ = Math.abs(pl.pos.z - slotA) < Math.abs(pl.pos.z - slotB) ? slotA : slotB
+
+    pl.pos.set(1.65, 0.64, targetZ)
     pl.facing = Math.PI / 2
     this.toast('Selamat tidur. Tekan E atau jalan buat bangun.')
   }
@@ -629,12 +765,157 @@ export class Game {
       use('sawi', 2)
       dish = 'tumis sawi'
     } else dish = 'mie instan pakai telor'
+
+    this.spawnCookedDish(dish)
+
     const gimbul = this.cats.find((c) => c.def.id === 'gimbul')
     if (gimbul && !gimbul.busy && gimbul.state !== 'sleep') {
       gimbul.follow(10)
       gimbul.meow()
     }
-    return `Jadi ${dish}! Gimbul langsung nongol.`
+    return `Masakan matang: ${dish}! Disajikan hangat di meja makan.`
+  }
+
+  spawnCookedDish(dishName) {
+    if (this.currentDish?.model) {
+      this.scene.remove(this.currentDish.model)
+    }
+    const model = createDishModel(dishName)
+    model.position.set(4.95, 0.76, -12.8)
+    this.scene.add(model)
+    this.currentDish = {
+      name: dishName,
+      model,
+      x: 4.95,
+      z: -12.8,
+    }
+    this.fx.spawn('steam', new THREE.Vector3(4.95, 0.95, -12.8), { size: 0.25 })
+  }
+
+  eatDish() {
+    if (!this.currentDish) return
+    const name = this.currentDish.name
+    sound.pop(1.4)
+    this.player.play('pet', 1.2)
+    if (this.currentDish.model) this.scene.remove(this.currentDish.model)
+    this.currentDish = null
+    this.toast(`Nyam nyam... ${name} hangatnya nikmat banget!`)
+  }
+
+  giveDishToNeighbor() {
+    if (!this.currentDish || !this.neighbor) return
+    const msg = this.neighbor.receiveDish(this.currentDish.name)
+    if (this.currentDish.model) this.scene.remove(this.currentDish.model)
+    this.currentDish = null
+    sound.pop(1.5)
+    this.toast(msg)
+  }
+
+  talkToNeighbor() {
+    if (!this.neighbor) return
+    const line = this.neighbor.talk()
+    this.toast(`Pak Joko: "${line}"`)
+    this.ui.chatMessages.push({
+      id: Math.random().toString(36).slice(2),
+      sender: 'Pak Joko',
+      text: line,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      self: false,
+    })
+  }
+
+  inviteNeighborToVehicle(veh) {
+    if (!this.neighbor) return
+    if (this.neighbor.isPassenger) {
+      const dropP = new THREE.Vector3(this.player.pos.x + 0.8, 0, this.player.pos.z)
+      this.neighbor.exitVehicle(dropP)
+      this.toast('Pak Joko turun dari kendaraan.')
+      return
+    }
+    this.neighbor.enterVehicle(veh)
+    if (veh === 'car') {
+      this.toast('Pak Joko: Wah asik, nebeng Mobilio ya mas!')
+    } else {
+      this.toast('Pak Joko: Siap mas, boncengan naik Vario!')
+    }
+  }
+
+  startDrive(vehicle) {
+    this.standUp()
+    this.endActivity(true)
+    this.drivingVehicle = vehicle
+    this.ui.driving = vehicle
+    if (vehicle === 'car') {
+      this.car.startDrive()
+      this.toast('Menyetir Honda Mobilio. WASD gas & belok, Shift ngebut, Q turun.')
+    } else {
+      this.motor.startDrive()
+      this.toast('Mengendarai Honda Vario 150. WASD gas & miring belok, Shift ngebut, Q turun.')
+    }
+  }
+
+  stopDrive() {
+    if (!this.drivingVehicle) return
+    if (this.drivingVehicle === 'car') {
+      this.car.stopDrive()
+      this.player.pos.set(this.car.group.position.x - 1.2, 0, this.car.group.position.z)
+      if (this.neighbor.passengerIn === 'car') {
+        this.neighbor.exitVehicle(new THREE.Vector3(this.car.group.position.x + 1.2, 0, this.car.group.position.z))
+      }
+    } else if (this.drivingVehicle === 'motor') {
+      this.motor.stopDrive()
+      this.player.pos.set(this.motor.root.position.x + 0.45, 0, this.motor.root.position.z)
+      if (this.neighbor.passengerIn === 'motor') {
+        this.neighbor.exitVehicle(new THREE.Vector3(this.motor.root.position.x - 0.45, 0, this.motor.root.position.z))
+      }
+    }
+    this.drivingVehicle = null
+    this.ui.driving = null
+    this.player.seat = null
+    this.toast('Kendaraan diparkir.')
+  }
+
+  greetPeer(peer) {
+    this.player.play('wave', 1.8)
+    sound.pop(1.2)
+    this.toast(`Menyapa ${peer.name}!`)
+    this.net.sendChat(`Halo ${peer.name}! 👋`)
+  }
+
+  togglePhotoMode() {
+    this.ui.photoMode = !this.ui.photoMode
+    if (this.ui.photoMode) {
+      this.toast('Mode Foto aktif. Abadikan momen di rumah Cipu!')
+    }
+  }
+
+  setPhotoAngle(preset) {
+    const pl = this.player
+    const cam = this.cam
+    if (preset === 'selfie') {
+      cam.yaw = pl.facing + Math.PI
+      cam.pitch = 0.25
+      cam.dist = 2.2
+      pl.play('wave', 2.5)
+    } else if (preset === 'depan') {
+      cam.yaw = pl.facing + Math.PI
+      cam.pitch = 0.38
+      cam.dist = 3.6
+    } else if (preset === 'samping') {
+      cam.yaw = pl.facing + Math.PI / 2
+      cam.pitch = 0.4
+      cam.dist = 4.0
+    } else if (preset === 'atas') {
+      cam.pitch = 1.15
+      cam.dist = 6.8
+    } else {
+      cam.dist = 4.5
+      cam.pitch = 0.55
+    }
+  }
+
+  setPhotoPose(pose) {
+    this.player.play(pose || 'wave', 3.0)
   }
 
   openWardrobe(w) {

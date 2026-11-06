@@ -260,10 +260,21 @@ function buildSurroundings(scene, physics) {
   g.add(plane(80, 1.5, 'paving', 3.5, 0.75, 0.004))
   g.add(plane(80, 6, 'asphalt', 3.5, 4.5, 0.001))
   const curbMat = new THREE.MeshStandardMaterial({ color: '#c9c4ba', roughness: 0.9 })
-  const curb = new THREE.Mesh(new THREE.BoxGeometry(80, 0.12, 0.14), curbMat)
-  curb.position.set(3.5, 0.06, 1.5)
-  curb.receiveShadow = true
-  g.add(curb)
+  // Trotoar ada bukaan jalan (driveway) di depan carport (x: 4.2 - 7.1)
+  const curbL = new THREE.Mesh(new THREE.BoxGeometry(40, 0.1, 0.14), curbMat)
+  curbL.position.set(-16, 0.05, 1.5)
+  curbL.receiveShadow = true
+  g.add(curbL)
+  const curbR = new THREE.Mesh(new THREE.BoxGeometry(36, 0.1, 0.14), curbMat)
+  curbR.position.set(25, 0.05, 1.5)
+  curbR.receiveShadow = true
+  g.add(curbR)
+  // Tanjakan paving halus di depan carport
+  const ramp = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.05, 0.3), curbMat)
+  ramp.position.set(5.65, 0.025, 1.5)
+  ramp.rotation.x = -0.15
+  g.add(ramp)
+
   const lineMat = new THREE.MeshBasicMaterial({ color: '#e9e4d4' })
   for (let x = -36; x < 44; x += 3) {
     const dash = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.12), lineMat)
@@ -326,11 +337,14 @@ function buildSurroundings(scene, physics) {
     g.add(tree)
   })
 
-  // batas area jalan-jalan
-  physics.add(-30, -0.075, -40, 40, 'bound')
-  physics.add(7.075, 40, -40, 40, 'bound')
+  // batas area jalan-jalan (bisa keluar pager sampai jalan aspal depan)
+  physics.add(-30, -0.075, -16.075, 0.1, 'bound')
+  physics.add(7.075, 40, -16.075, 0.1, 'bound')
   physics.add(-40, 40, -40, -16.075, 'bound')
-  physics.add(-40, 40, 1.45, 40, 'bound')
+  // Batas jalan aspal luar
+  physics.add(-40, 40, 7.3, 40, 'bound')
+  physics.add(-35, -28, -2, 8, 'bound')
+  physics.add(35, 42, -2, 8, 'bound')
 }
 
 // --- cutaway: dinding yang nutupin karakter dibikin transparan ---

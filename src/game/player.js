@@ -14,8 +14,15 @@ export const LOOK_OPTIONS = {
     { id: 'panjang', label: 'Panjang' },
     { id: 'kuncir', label: 'Kuncir' },
     { id: 'hijab', label: 'Hijab' },
+    { id: 'mohawk', label: '⚡ Mohawk punk' },
+    { id: 'afro', label: '☁️ Afro mekar' },
+    { id: 'mangkok', label: '🥣 Batok mangkok' },
+    { id: 'mullet', label: '🎸 Mullet jadul' },
+    { id: 'jabrik', label: '🦔 Jabrik anime' },
+    { id: 'antena', label: '🌱 Antena ahoge' },
+    { id: 'botakProfesor', label: '👴 Botak profesor' },
   ],
-  hairColor: ['#171515', '#3b2a20', '#6b4a2f', '#a8763e', '#8c2f2f', '#c9c2b8'],
+  hairColor: ['#171515', '#3b2a20', '#6b4a2f', '#a8763e', '#8c2f2f', '#c9c2b8', '#3498db', '#2ecc71', '#e74c3c'],
   hijabColor: ['#e9dcc9', '#c45b6a', '#5b7aa3', '#4f7a5a', '#2b2b2e', '#d9a441'],
   top: [
     { id: 'kemeja', label: 'Kemeja' },
@@ -30,6 +37,14 @@ export const LOOK_OPTIONS = {
     { id: 'rok', label: 'Rok' },
   ],
   bottomColor: ['#2f3742', '#4a5f7a', '#6b4a33', '#c9c2b0', '#1f1f22', '#8c5a7a'],
+  shoes: [
+    { id: 'kets', label: 'Sneakers' },
+    { id: 'sandal', label: 'Sandal jepit' },
+    { id: 'pantofel', label: 'Pantofel' },
+    { id: 'boots', label: 'Boots tinggi' },
+    { id: 'nyeker', label: 'Nyeker' },
+  ],
+  shoeColor: ['#1e1e20', '#f7f6f2', '#6b4a33', '#2b4d75', '#a83232', '#d9a441'],
 }
 
 export const DEFAULT_LOOK = {
@@ -42,11 +57,13 @@ export const DEFAULT_LOOK = {
   topColor: '#f7f6f2',
   bottom: 'celana',
   bottomColor: '#2f3742',
+  shoes: 'kets',
+  shoeColor: '#1e1e20',
 }
 
 export const PRESETS = {
   cowok: { ...DEFAULT_LOOK },
-  cewek: { ...DEFAULT_LOOK, gender: 'cewek', hair: 'panjang', hairColor: '#3b2a20', top: 'kaos', topColor: '#c38bb5', bottom: 'rok', bottomColor: '#4a5f7a' },
+  cewek: { ...DEFAULT_LOOK, gender: 'cewek', hair: 'panjang', hairColor: '#3b2a20', top: 'kaos', topColor: '#c38bb5', bottom: 'rok', bottomColor: '#4a5f7a', shoes: 'kets', shoeColor: '#f7f6f2' },
 }
 
 // look dari luar (save / pemain lain) dibersihin biar nggak bikin crash
@@ -63,6 +80,8 @@ export const sanitizeLook = (l = {}) => {
     topColor: hex(l.topColor, DEFAULT_LOOK.topColor),
     bottom: pick(l.bottom, LOOK_OPTIONS.bottom, DEFAULT_LOOK.bottom),
     bottomColor: hex(l.bottomColor, DEFAULT_LOOK.bottomColor),
+    shoes: pick(l.shoes, LOOK_OPTIONS.shoes, DEFAULT_LOOK.shoes),
+    shoeColor: hex(l.shoeColor, DEFAULT_LOOK.shoeColor),
   }
 }
 
@@ -469,6 +488,146 @@ function buildHair(look, hair, hairMat) {
       add(drape)
       break
     }
+    case 'mohawk': {
+      const H = [1.05, 0.8, -0.4, 6]
+      add(shortShell(hairMat, oval(...H), H, { volume: 0.02, lift: 0.005, line: { ear: 0.22, nape: -0.35 } }))
+      const spikeCount = 8
+      for (let i = 0; i < spikeCount; i++) {
+        const t = i / (spikeCount - 1)
+        const el = 0.55 - t * 0.95
+        const p = onHead(0, el, 0.02)
+        const spikeH = 0.16 + Math.sin(t * Math.PI) * 0.08
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.045, spikeH, 8), i % 2 === 0 ? hairMat : shade)
+        cone.position.copy(p)
+        orient(cone, p.clone().normalize(), new THREE.Vector3(0, 0.4, 1))
+        cone.rotateX(-0.35)
+        add(cone)
+      }
+      break
+    }
+    case 'afro': {
+      const H = [0.85, 0.7, -0.4, 4]
+      const afroBase = hairShell({
+        r: HEAD_R + 0.06,
+        bottom: -0.65,
+        hole: oval(...H),
+        holeSpec: H,
+        flare: () => 1.25,
+        mat: hairMat,
+        rim: 0.03,
+      })
+      add(afroBase)
+      for (let i = 0; i < 28; i++) {
+        const az = -Math.PI + (i / 28) * Math.PI * 2
+        const el = 0.1 + ((i * 17) % 7) * 0.12
+        if (az > -0.6 && az < 0.6 && el < 0.45) continue
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(0.08 + (i % 3) * 0.015, 8, 6), i % 3 === 0 ? shade : hairMat)
+        puff.position.copy(onHead(az, el, 0.09))
+        add(puff)
+      }
+      break
+    }
+    case 'mangkok': {
+      const H = [0.95, 0.65, -0.4, 4]
+      add(
+        hairShell({
+          r: HEAD_R + 0.035,
+          bottom: -0.3,
+          hole: oval(...H),
+          holeSpec: H,
+          flare: (az, el) => 1 + 0.18 * smoothstep(0.4, -0.2, el),
+          mat: hairMat,
+          rim: 0.026,
+        }),
+      )
+      for (let i = 0; i < 7; i++) {
+        const az = -0.6 + i * 0.2
+        strand([[az, 0.6, 0.03], [az, 0.25, 0.035]], 0.045, 0.035, i % 2 ? shade : hairMat)
+      }
+      break
+    }
+    case 'mullet': {
+      const H = [1.05, 0.75, -0.38, 4]
+      add(shortShell(hairMat, oval(...H), H, { volume: 0.06, lift: 0.014 }))
+      for (let i = 0; i < 5; i++) {
+        const az = -0.4 + i * 0.2
+        const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.08, 6), hairMat)
+        const p = onHead(az, 0.55, 0.02)
+        tuft.position.copy(p)
+        orient(tuft, p.clone().normalize(), new THREE.Vector3(0, 0.3, 1))
+        tuft.rotateX(-0.5)
+        add(tuft)
+      }
+      const curtain = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.38, 24, 1, true, Math.PI - 1.4, 2.8), hairMat)
+      curtain.position.set(0, -0.36, -0.06)
+      curtain.scale.z = 0.85
+      curtain.castShadow = true
+      add(curtain)
+      for (let k = -2; k <= 2; k++) {
+        strand([[Math.PI + k * 0.25, -0.1, 0.04], [Math.PI + k * 0.22, -0.5, 0.05]], 0.05, 0.02, k % 2 ? shade : hairMat)
+      }
+      break
+    }
+    case 'jabrik': {
+      const H = [1.05, 0.75, -0.4, 4]
+      add(shortShell(hairMat, oval(...H), H, { volume: 0.06, lift: 0.01 }))
+      const spikeDirs = [
+        [-0.5, 0.7, 0.16], [0.5, 0.7, 0.16], [0, 0.85, 0.18],
+        [-0.8, 0.45, 0.14], [0.8, 0.45, 0.14],
+        [-0.3, 1.0, 0.2], [0.3, 1.0, 0.2],
+        [-0.7, 0.9, 0.15], [0.7, 0.9, 0.15],
+        [Math.PI - 0.4, 0.7, 0.15], [Math.PI + 0.4, 0.7, 0.15],
+        [Math.PI, 0.9, 0.18],
+      ]
+      spikeDirs.forEach(([az, el, len], i) => {
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.05, len, 8), i % 2 ? shade : hairMat)
+        const p = onHead(az, el, 0.02)
+        cone.position.copy(p)
+        orient(cone, p.clone().normalize(), new THREE.Vector3(0, 1, 0))
+        cone.rotateX(Math.PI / 2)
+        add(cone)
+      })
+      break
+    }
+    case 'antena': {
+      const H = [1.05, 0.75, -0.38, 4]
+      add(shortShell(hairMat, oval(...H), H, { volume: 0.06, lift: 0.012 }))
+      strand([[-0.4, 0.8, 0.04], [0.2, 0.55, 0.04], [0.6, 0.35, 0.02]], 0.06, 0.02)
+      const ahogeCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0.28, 0.02),
+        new THREE.Vector3(0.04, 0.4, 0.04),
+        new THREE.Vector3(-0.06, 0.52, 0.02),
+        new THREE.Vector3(0.08, 0.58, -0.04),
+      ])
+      const ahogeMesh = new THREE.Mesh(new THREE.TubeGeometry(ahogeCurve, 16, 0.016, 6, false), shade)
+      ahogeMesh.castShadow = true
+      add(ahogeMesh)
+      const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), mat('#2ecc71', 0.6))
+      leaf.position.set(0.08, 0.58, -0.04)
+      leaf.scale.set(0.6, 1.2, 0.3)
+      leaf.rotation.z = -0.5
+      add(leaf)
+      break
+    }
+    case 'botakProfesor': {
+      const profShell = hairShell({
+        r: HEAD_R + 0.025,
+        bottom: -0.65,
+        hole: (az, el) => el > 0.1 || (Math.abs(az) < 1.1 && el > -0.2),
+        mat: hairMat,
+        rim: 0.02,
+      })
+      add(profShell)
+      for (const s of [-1, 1]) {
+        for (let i = 0; i < 5; i++) {
+          const puff = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), i % 2 ? shade : hairMat)
+          puff.position.copy(onHead(s * (1.3 + (i % 2) * 0.25), -0.05 + Math.floor(i / 2) * 0.12, 0.04))
+          puff.scale.set(1.1, 0.8, 1.2)
+          add(puff)
+        }
+      }
+      break
+    }
     default: {
       // 'samping' -> gaya Ferdy: belah samping, poni nyapu ke kanan
       const H = [1.05, 0.75, -0.38, 4]
@@ -534,6 +693,8 @@ export class Player {
     const shoe = mat(SHOE, 0.6)
     const rok = L.bottom === 'rok'
     const pendek = L.bottom === 'pendek'
+    const shoeType = L.shoes || 'kets'
+    const shoeMat = mat(L.shoeColor || '#1e1e20', shoeType === 'pantofel' ? 0.25 : 0.7, shoeType === 'pantofel' ? { metalness: 0.15 } : {})
 
     // kaki: paha + lutut + betis
     this.legs = []
@@ -546,10 +707,50 @@ export class Player {
       knee.position.y = -0.19
       hip.add(knee)
       mesh(new THREE.CapsuleGeometry(0.068, 0.1, 6, 12), rok || pendek ? skin : bottom, knee, 0, -0.07, 0)
-      const sh = mesh(new THREE.SphereGeometry(0.08, 16, 12), shoe, knee, 0, -0.18, 0.03)
-      sh.scale.set(0.95, 0.62, 1.45)
-      const sole = mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.02, 16), mat('#f2efe8', 0.8), knee, 0, -0.215, 0.03)
-      sole.scale.set(1, 1, 1.5)
+
+      if (shoeType === 'nyeker') {
+        const foot = mesh(new THREE.SphereGeometry(0.075, 14, 10), skin, knee, 0, -0.19, 0.03)
+        foot.scale.set(0.9, 0.55, 1.35)
+        for (let j = 0; j < 5; j++) {
+          const toe = mesh(new THREE.SphereGeometry(0.016, 8, 6), skin, knee, (j - 2) * 0.014 * s, -0.21, 0.125)
+          toe.scale.set(0.9, 0.7, 1.1)
+        }
+      } else if (shoeType === 'sandal') {
+        const foot = mesh(new THREE.SphereGeometry(0.074, 14, 10), skin, knee, 0, -0.18, 0.03)
+        foot.scale.set(0.9, 0.55, 1.35)
+        const sole = mesh(new THREE.CylinderGeometry(0.076, 0.076, 0.018, 16), shoeMat, knee, 0, -0.216, 0.03)
+        sole.scale.set(1, 1, 1.48)
+        for (const side of [-1, 1]) {
+          const strap = mesh(new THREE.BoxGeometry(0.012, 0.012, 0.08), shoeMat, knee, side * 0.032, -0.175, 0.04)
+          strap.rotation.set(-0.35, side * 0.45, 0)
+        }
+        mesh(new THREE.SphereGeometry(0.012, 8, 6), shoeMat, knee, 0, -0.185, 0.085)
+      } else if (shoeType === 'pantofel') {
+        const sh = mesh(new THREE.SphereGeometry(0.08, 16, 12), shoeMat, knee, 0, -0.18, 0.035)
+        sh.scale.set(0.92, 0.6, 1.5)
+        const sole = mesh(new THREE.CylinderGeometry(0.074, 0.074, 0.018, 16), mat('#121212', 0.5), knee, 0, -0.215, 0.035)
+        sole.scale.set(0.98, 1, 1.52)
+        mesh(new THREE.BoxGeometry(0.09, 0.02, 0.06), mat('#121212', 0.5), knee, 0, -0.22, -0.03)
+      } else if (shoeType === 'boots') {
+        mesh(new THREE.CylinderGeometry(0.074, 0.072, 0.12, 16), shoeMat, knee, 0, -0.12, 0)
+        const sh = mesh(new THREE.SphereGeometry(0.084, 16, 12), shoeMat, knee, 0, -0.18, 0.035)
+        sh.scale.set(0.98, 0.64, 1.48)
+        const sole = mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.03, 16), mat('#18181a', 0.9), knee, 0, -0.218, 0.035)
+        sole.scale.set(1.02, 1, 1.5)
+        mesh(new THREE.BoxGeometry(0.02, 0.018, 0.04), mat('#c9b06a', 0.3, { metalness: 0.8 }), knee, s * 0.075, -0.11, 0)
+      } else {
+        const sh = mesh(new THREE.SphereGeometry(0.08, 16, 12), shoeMat, knee, 0, -0.18, 0.03)
+        sh.scale.set(0.95, 0.62, 1.45)
+        const toeCap = mesh(new THREE.SphereGeometry(0.05, 12, 10), mat('#f5f4ef', 0.7), knee, 0, -0.185, 0.095)
+        toeCap.scale.set(1.1, 0.7, 0.8)
+        const sole = mesh(new THREE.CylinderGeometry(0.076, 0.076, 0.022, 16), mat('#f5f4ef', 0.8), knee, 0, -0.215, 0.03)
+        sole.scale.set(1, 1, 1.5)
+        const laceMat = mat('#ffffff', 0.9)
+        for (let l = 0; l < 3; l++) {
+          mesh(new THREE.BoxGeometry(0.045, 0.008, 0.012), laceMat, knee, 0, -0.155 + l * 0.015, 0.03 + l * 0.018)
+        }
+      }
+
       this.body.add(hip)
       this.legs.push(hip)
       this.knees.push(knee)

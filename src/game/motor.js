@@ -232,16 +232,95 @@ export function buildMotor(scene, physics, { x = 4.3, z = 3.3 } = {}) {
   // depan menghadap jalan (dunia +z), di teras sisi carport
   root.position.set(x, 0, -z)
   scene.add(root)
-  physics.addPlan(x - 0.18, z - 0.96, x + 0.18, z + 0.96, 'motor')
+  const collider = physics.addPlan(x - 0.18, z - 0.96, x + 0.18, z + 0.96, 'motor')
 
   let blink = 0
+  let speed = 0
+  let steer = 0
+  let driving = false
+
   return {
     root,
-    center: { x, z: -z },
-    seat: { x, z: -(z + 0.25), y: 0.86 },
+    get center() {
+      return { x: root.position.x, z: root.position.z }
+    },
+    get seat() {
+      const v = new THREE.Vector3(0, 0.82, -0.15).applyMatrix4(root.matrixWorld)
+      return { x: v.x, z: v.z, y: v.y }
+    },
+    get passengerSeat() {
+      const v = new THREE.Vector3(0, 0.88, -0.52).applyMatrix4(root.matrixWorld)
+      return { x: v.x, z: v.z, y: v.y }
+    },
+    get driving() {
+      return driving
+    },
+    get speed() {
+      return speed
+    },
     // fitur answer back: bunyi bip + sein kedip
     answerBack() {
       blink = 1.4
+    },
+    startDrive() {
+      driving = true
+      collider.disabled = true
+      stand.visible = false
+      bike.rotation.z = 0
+      bike.position.x = 0
+    },
+    stopDrive() {
+      driving = false
+      speed = 0
+      steer = 0
+      stand.visible = true
+      bike.rotation.z = -0.08
+      bike.position.x = 0.02
+      collider.disabled = false
+      collider.minX = root.position.x - 0.22
+      collider.maxX = root.position.x + 0.22
+      collider.minZ = root.position.z - 0.95
+      collider.maxZ = root.position.z + 0.95
+    },
+    drive(dt, steerIn, throttleIn, isFast, physics) {
+      if (!driving) return
+      const maxSpd = isFast ? 7.5 : 4.8
+      const accel = isFast ? 6.5 : 4.5
+      const maxSteer = 0.65
+
+      steer += (steerIn * maxSteer - steer) * Math.min(1, dt * 10)
+
+      if (throttleIn > 0) {
+        speed += accel * dt
+        if (speed > maxSpd) speed = maxSpd
+      } else if (throttleIn < 0) {
+        speed -= accel * 0.8 * dt
+        if (speed < -1.8) speed = -1.8
+      } else {
+        speed *= Math.exp(-dt * 3.0)
+        if (Math.abs(speed) < 0.05) speed = 0
+      }
+
+      if (Math.abs(speed) > 0.05) {
+        const turnRate = -(speed / 1.6) * Math.sin(steer)
+        root.rotation.y += turnRate * dt
+        // Miring rebah saat menikung
+        const targetLean = -steer * Math.min(1, Math.abs(speed) / 2.5) * 0.35
+        bike.rotation.z += (targetLean - bike.rotation.z) * Math.min(1, dt * 8)
+      } else {
+        bike.rotation.z *= Math.exp(-dt * 6)
+      }
+
+      // Maju sesuai orientasi motor (lokal +z)
+      const forward = new THREE.Vector3(Math.sin(root.rotation.y), 0, Math.cos(root.rotation.y))
+      root.position.addScaledVector(forward, speed * dt)
+
+      physics.resolve(root.position, 0.45)
+
+      // Putar roda motor
+      const roll = (speed * dt) / R
+      wf.rotation.x += roll
+      wr.rotation.x += roll
     },
     update(dt) {
       if (blink > 0) {

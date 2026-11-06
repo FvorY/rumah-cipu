@@ -21,6 +21,7 @@ const tabs = computed(() => [
   { id: 'rambut', label: 'Rambut' },
   { id: 'atasan', label: 'Atasan' },
   { id: 'bawahan', label: 'Bawahan' },
+  { id: 'sepatu', label: 'Sepatu' },
 ])
 
 const set = (key, value) => {
@@ -116,7 +117,7 @@ const cancel = () => {
         </div>
       </section>
 
-      <section v-else>
+      <section v-else-if="tab === 'bawahan'">
         <div class="chips wrap-chips">
           <button v-for="o in LOOK_OPTIONS.bottom" :key="o.id" :class="{ on: L.bottom === o.id }" @click="set('bottom', o.id)">{{ o.label }}</button>
         </div>
@@ -124,6 +125,18 @@ const cancel = () => {
           <span class="lbl">Warna</span>
           <div class="swatches">
             <button v-for="c in LOOK_OPTIONS.bottomColor" :key="c" :class="{ on: L.bottomColor === c }" :style="{ background: c }" @click="set('bottomColor', c)" />
+          </div>
+        </div>
+      </section>
+
+      <section v-else-if="tab === 'sepatu'">
+        <div class="chips wrap-chips">
+          <button v-for="o in LOOK_OPTIONS.shoes" :key="o.id" :class="{ on: L.shoes === o.id }" @click="set('shoes', o.id)">{{ o.label }}</button>
+        </div>
+        <div v-if="L.shoes !== 'nyeker'" class="row">
+          <span class="lbl">Warna</span>
+          <div class="swatches">
+            <button v-for="c in LOOK_OPTIONS.shoeColor" :key="c" :class="{ on: L.shoeColor === c }" :style="{ background: c }" @click="set('shoeColor', c)" />
           </div>
         </div>
       </section>

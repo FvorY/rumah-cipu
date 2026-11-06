@@ -279,8 +279,17 @@ export function buildCar(scene, physics, { x = 5.8, z = 2.3 } = {}) {
   // ---- roda: ban bulat (torus) + velg palang 5 ----
   const tireGeo = new THREE.TorusGeometry(0.235, 0.075, 12, 32)
   const rimMat = M('#b9bdc2', 0.2, { metalness: 0.85 })
+  const frontSteerGroups = []
+  const allSpinWheels = []
+
   for (const wx of [-1.33, 1.33]) {
     for (const side of [-1, 1]) {
+      const isFront = wx > 0
+      const mount = new THREE.Group()
+      mount.position.set(wx, 0.31, side * 0.7)
+      car.add(mount)
+      if (isFront) frontSteerGroups.push(mount)
+
       const wheel = new THREE.Group()
       const tire = new THREE.Mesh(tireGeo, M('#1a1a1a', 0.85))
       tire.scale.z = 1.25
@@ -297,8 +306,8 @@ export function buildCar(scene, physics, { x = 5.8, z = 2.3 } = {}) {
         spoke.position.z = side * 0.085
         wheel.add(spoke)
       }
-      wheel.position.set(wx, 0.31, side * 0.7)
-      car.add(wheel)
+      mount.add(wheel)
+      allSpinWheels.push(wheel)
     }
   }
 
@@ -322,23 +331,102 @@ export function buildCar(scene, physics, { x = 5.8, z = 2.3 } = {}) {
   car.rotation.y = -Math.PI / 2
   car.position.set(x, 0, -z)
   scene.add(car)
-  physics.addPlan(x - 0.86, z - 2.15, x + 0.86, z + 2.15, 'car')
+  const collider = physics.addPlan(x - 0.86, z - 2.15, x + 0.86, z + 2.15, 'car')
 
   let flash = 0
+  let speed = 0
+  let steer = 0
+  let driving = false
+
   return {
     group: car,
-    center: { x, z: -z },
-    // kap mesin, tempat favorit Mujaer
-    hood: { x, z: -(z - 1.62), y: 0.93 },
+    get center() {
+      return { x: car.position.x, z: car.position.z }
+    },
+    get hood() {
+      const v = new THREE.Vector3(1.62, 0.93, 0).applyMatrix4(car.matrixWorld)
+      return { x: v.x, z: v.z, y: v.y }
+    },
+    get driverSeat() {
+      return new THREE.Vector3(0.2, 0.45, -0.38).applyMatrix4(car.matrixWorld)
+    },
+    get passengerSeat() {
+      return new THREE.Vector3(0.2, 0.45, 0.38).applyMatrix4(car.matrixWorld)
+    },
+    get driving() {
+      return driving
+    },
+    get speed() {
+      return speed
+    },
     honk() {
       flash = 0.9
+    },
+    startDrive() {
+      driving = true
+      collider.disabled = true
+      headMat.emissiveIntensity = 1.2
+    },
+    stopDrive() {
+      driving = false
+      speed = 0
+      steer = 0
+      collider.disabled = false
+      collider.minX = car.position.x - 0.86
+      collider.maxX = car.position.x + 0.86
+      collider.minZ = car.position.z - 2.15
+      collider.maxZ = car.position.z + 2.15
+      headMat.emissiveIntensity = 0
+      for (const fg of frontSteerGroups) fg.rotation.y = 0
+    },
+    drive(dt, steerIn, throttleIn, isFast, physics) {
+      if (!driving) return
+      const maxSpd = isFast ? 6.5 : 4.2
+      const accel = isFast ? 5.5 : 3.8
+      const maxSteer = 0.52
+
+      // Kemudi
+      steer += (steerIn * maxSteer - steer) * Math.min(1, dt * 8)
+      for (const fg of frontSteerGroups) fg.rotation.y = steer
+
+      // Akselerasi & pengereman
+      if (throttleIn > 0) {
+        speed += accel * dt
+        if (speed > maxSpd) speed = maxSpd
+      } else if (throttleIn < 0) {
+        speed -= accel * 0.9 * dt
+        if (speed < -2.2) speed = -2.2
+      } else {
+        // Hambatan mesin / pelambatan alami
+        speed *= Math.exp(-dt * 2.8)
+        if (Math.abs(speed) < 0.05) speed = 0
+      }
+
+      // Belok saat mobil bergerak
+      if (Math.abs(speed) > 0.05) {
+        const turnRate = -(speed / 2.66) * Math.sin(steer)
+        car.rotation.y += turnRate * dt
+      }
+
+      // Maju sesuai orientasi mobil (lokal +x = arah moncong)
+      const forward = new THREE.Vector3(Math.cos(car.rotation.y), 0, -Math.sin(car.rotation.y))
+      car.position.addScaledVector(forward, speed * dt)
+
+      // Cek tabrakan dengan batas & pagar
+      physics.resolve(car.position, 1.05)
+
+      // Putar roda saat berjalan
+      const rollDelta = -(speed * dt) / 0.235
+      for (const w of allSpinWheels) w.rotation.z += rollDelta
     },
     update(dt) {
       if (flash > 0) {
         flash -= dt
         const on = Math.floor(flash * 7) % 2 === 0 && flash > 0
-        headMat.emissiveIntensity = on ? 2.2 : 0
-      } else headMat.emissiveIntensity = 0
+        headMat.emissiveIntensity = on ? 2.2 : (driving ? 1.2 : 0)
+      } else if (!driving) {
+        headMat.emissiveIntensity = 0
+      }
     },
   }
 }

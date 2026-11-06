@@ -15,27 +15,34 @@ Pakai Vue 3 + Three.js. Semua model (rumah, karakter, kucing, mobil, tanaman) di
 | Cipi   | betina | oren, hitam, putih            | lincah, suka lari-lari nggak jelas              |
 | Mujaer | jantan | abu-abu belang kayak mujaer   | suka ngintil, nongkrong di kap mobil            |
 
-Karakternya bisa dibikin sendiri (cowok/cewek, kulit, rambut termasuk hijab, kemeja/kaos/hoodie/batik, celana/rok) dan bisa:
-- duduk (`Q`) di sofa, kursi, kasur, sampai jok motor
+Karakternya bisa dibikin sendiri (cowok/cewek, kulit, rambut termasuk gaya cowok unik/aneh, hijab, kemeja/kaos/hoodie/batik, celana/rok, pilihan sepatu) dan bisa:
+- duduk (`Q`) di sofa, kursi, kasur, sampai jok motor (posisi duduk & tidur ganda, bisa berdampingan/sebelahan)
 - mandi di shower, tidur di kasur (duduk dulu di kasur, lalu `E`), masak di kompor
-- ganti baju di lemari
+- ganti baju & sepatu di lemari
+- menyetir Honda Mobilio dan mengendarai Honda Vario 150 keliling jalan aspal depan komplek
+- ngobrol dan berinteraksi dengan Pak Joko (tetangga di trotoar depan), memberinya makanan atau mengajaknya nebeng kendaraan
 
-Masakannya tergantung hasil panen: cabai + tomat jadi sambal tomat, terong + cabai jadi terong balado, sawi jadi tumis sawi. Kalau kebun kosong, ya mie instan.
+Masakannya tergantung hasil panen: cabai + tomat jadi sambal tomat, terong + cabai jadi terong balado, sawi jadi tumis sawi. Kalau kebun kosong, ya mie instan telor. Hasil masakan muncul dalam bentuk 3D di meja makan dan bisa disantap atau diberikan ke tetangga.
 
 Kucing bisa dielus, digendong, dikasih churu (ambil di kulkas), dipanggil, atau dikagetin pakai klakson mobil. Mereka juga bisa loncat ke kasur, sofa, cat tree, sama kap Mobilio.
 
-## Main bareng
+## Main bareng & Chat
 
-Siapa pun yang buka web-nya di waktu yang sama bakal ketemu di rumah yang sama: kelihatan karakternya, namanya, lagi jalan, duduk, tidur, mandi, atau masak. Koneksinya lewat relay MQTT di atas WebSocket aman (broker publik HiveMQ & EMQX, dua-duanya dipakai sekaligus), jadi tetap nyambung walau satu pakai data seluler dan satunya Wi-Fi, dan nggak perlu server sendiri. Sesama pemain nggak saling lihat alamat IP. Pojok kiri atas nunjukin status koneksinya. Kucing dan kebun tetap punya masing-masing.
+Siapa pun yang buka web-nya di waktu yang sama bakal ketemu di rumah yang sama: kelihatan karakternya, namanya, lagi jalan, duduk, tidur (sebelahan), mandi, atau masak. Dilengkapi fitur chat online real-time dengan balon pesan (bubble chat) di atas kepala pemain. Koneksinya lewat relay MQTT di atas WebSocket aman (broker publik HiveMQ & EMQX, dua-duanya dipakai sekaligus), jadi tetap nyambung walau satu pakai data seluler dan satunya Wi-Fi, dan nggak perlu server sendiri. Sesama pemain nggak saling lihat alamat IP. Pojok kiri atas nunjukin status koneksinya. Kucing dan kebun tetap punya masing-masing.
 
 Pemilik rumah punya tanda khusus di atas kepalanya. Tanda itu diverifikasi pakai tanda tangan digital (Ed25519) di tiap browser, jadi nggak bisa dipalsuin cuma dengan ganti nama.
 
+## Mode Foto
+
+Tersedia Mode Foto (`P` atau tombol 📸) dengan viewfinder fotografi, pilihan sudut kamera (termasuk pose selfie menghadap wajah), pilihan pose karakter (dadah, senyum, gaya), filter warna (asli, hangat, retro, noir), dan tombol unduh snapshot foto beresolusi tinggi langsung ke perangkat.
+
 ## Kontrol
 
-- `WASD` / panah: jalan, tahan `Shift` buat lari
+- `WASD` / panah: jalan / kemudi kendaraan, tahan `Shift` buat lari / ngebut
 - drag: muter kamera, scroll: zoom
-- `E` interaksi, `Q` duduk / berdiri (sofa, kursi, kasur, jok motor), `F` gendong, `R` kasih churu, `C` panggil kucing
-- `T` tur rumah otomatis, `V` dinding rendah, `B` atap muncul/hilang, `M` suara
+- `E` interaksi (makan, sapa tetangga/teman, kendarai mobil/motor, masak, mandi), `Q` duduk / berdiri / turun kendaraan, `F` gendong, `R` kasih churu, `C` panggil kucing
+- `G` ajak tetangga jalan bareng / nebeng, `H` klakson kendaraan
+- `P` mode foto, `T` tur rumah otomatis, `V` dinding rendah, `B` atap muncul/hilang, `M` suara
 - Klik ruangan di denah kecil (kanan atas) buat jalan otomatis ke sana
 - Tombol **Download denah** di bawah denah kecil: gambar kerja Denah Lantai 1 skala 1:100 (A4) lengkap dengan as, ukuran, pintu, jendela, dan peil lantai. Bisa diunduh PNG, SVG, atau dicetak ke PDF
 - `E` di depan pagar carport buat buka/tutup pagar
