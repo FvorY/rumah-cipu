@@ -6,7 +6,7 @@ export class Fx {
   constructor(scene) {
     this.scene = scene
     this.items = []
-    this.tex = { heart: iconTexture('heart'), z: iconTexture('z'), drop: iconTexture('drop') }
+    this.tex = { heart: iconTexture('heart'), z: iconTexture('z'), drop: iconTexture('drop'), steam: iconTexture('steam') }
   }
 
   spawn(kind, pos, opts = {}) {
@@ -24,8 +24,10 @@ export class Fx {
         ? new THREE.Vector3((Math.random() - 0.5) * 0.15, 0.45, 0)
         : kind === 'z'
           ? new THREE.Vector3(0.12, 0.22, 0)
-          : new THREE.Vector3(0, -1.2, 0))
-    this.items.push({ s, vel, life: opts.life || (kind === 'drop' ? 0.45 : 1.4), age: 0, kind, size })
+          : kind === 'steam'
+            ? new THREE.Vector3((Math.random() - 0.5) * 0.1, 0.35, 0)
+            : new THREE.Vector3(0, -1.2, 0))
+    this.items.push({ s, vel, life: opts.life || (kind === 'drop' ? 0.45 : kind === 'steam' ? 1.6 : 1.4), age: 0, kind, size })
   }
 
   update(dt) {
@@ -36,7 +38,8 @@ export class Fx {
       if (p.kind === 'drop') p.vel.y -= dt * 4
       const t = p.age / p.life
       p.s.material.opacity = t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8
-      if (p.kind !== 'drop') p.s.scale.setScalar(p.size * (0.7 + Math.min(1, t * 3) * 0.3))
+      if (p.kind === 'steam') p.s.scale.setScalar(p.size * (0.6 + t * 1.2))
+      else if (p.kind !== 'drop') p.s.scale.setScalar(p.size * (0.7 + Math.min(1, t * 3) * 0.3))
       if (p.age >= p.life) {
         this.scene.remove(p.s)
         p.s.material.dispose()

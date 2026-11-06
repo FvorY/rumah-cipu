@@ -15,6 +15,13 @@ Pakai Vue 3 + Three.js. Semua model (rumah, karakter, kucing, mobil, tanaman) di
 | Cipi   | betina | oren, hitam, putih            | lincah, suka lari-lari nggak jelas              |
 | Mujaer | jantan | abu-abu belang kayak mujaer   | suka ngintil, nongkrong di kap mobil            |
 
+Karakternya bisa dibikin sendiri (cowok/cewek, kulit, rambut termasuk hijab, kemeja/kaos/hoodie/batik, celana/rok) dan bisa:
+- duduk (`Q`) di sofa, kursi, kasur, sampai jok motor
+- mandi di shower, tidur di kasur (duduk dulu di kasur, lalu `E`), masak di kompor
+- ganti baju di lemari
+
+Masakannya tergantung hasil panen: cabai + tomat jadi sambal tomat, terong + cabai jadi terong balado, sawi jadi tumis sawi. Kalau kebun kosong, ya mie instan.
+
 Kucing bisa dielus, digendong, dikasih churu (ambil di kulkas), dipanggil, atau dikagetin pakai klakson mobil. Mereka juga bisa loncat ke kasur, sofa, cat tree, sama kap Mobilio.
 
 ## Kontrol

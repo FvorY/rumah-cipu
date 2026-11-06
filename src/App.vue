@@ -10,6 +10,7 @@ import PromptBar from './components/PromptBar.vue'
 import Joystick from './components/Joystick.vue'
 import SeedPicker from './components/SeedPicker.vue'
 import DenahModal from './components/DenahModal.vue'
+import Customizer from './components/Customizer.vue'
 
 const canvas = ref(null)
 const isTouch = ref(false)
@@ -22,12 +23,31 @@ onMounted(() => {
   isTouch.value = matchMedia('(pointer: coarse)').matches
   mapOpen.value = window.innerWidth > 720
   game = new Game(canvas.value, ui)
+  profileName.value = game.profile.name
   if (import.meta.env.DEV) window.__game = game
 })
 
 onBeforeUnmount(() => game?.dispose())
 
-const start = () => game.start()
+const profileName = ref('')
+// pemain baru (atau yang mau ganti) bikin karakter dulu sebelum masuk
+const start = (customize = false) => {
+  game.start()
+  if (customize || !game.profile.name) {
+    game.player.facing = 0
+    ui.customizer = { mode: 'create' }
+    game.setPreviewCam(true)
+  }
+}
+const onCustomDone = ({ name, look }) => {
+  const creating = ui.customizer?.mode === 'create'
+  game.setProfile({ name: creating ? name : undefined, look })
+  game.closeCustomizer()
+  if (creating) {
+    game.player.facing = Math.PI
+    game.toast(`Halo ${game.profile.name}, selamat datang!`)
+  }
+}
 const trigger = (key) => game.trigger(key)
 const setJoy = (v) => {
   game.input.joy.x = v.x
@@ -59,7 +79,7 @@ const harvestList = computed(() =>
     <canvas ref="canvas" class="scene" />
 
     <Transition name="fade">
-      <StartScreen v-if="!ui.started" @start="start" />
+      <StartScreen v-if="!ui.started" :name="profileName" @start="start" />
     </Transition>
 
     <template v-if="ui.started">
@@ -121,8 +141,18 @@ const harvestList = computed(() =>
         <div v-if="toastVisible && ui.toast" :key="ui.toast.id" class="toast">{{ ui.toast.text }}</div>
       </Transition>
 
-      <PromptBar :prompts="ui.prompts" :touch="isTouch" @trigger="trigger" />
-      <Joystick v-if="isTouch" @move="setJoy" />
+      <PromptBar v-if="!ui.customizer" :prompts="ui.prompts" :touch="isTouch" @trigger="trigger" />
+      <Joystick v-if="isTouch && !ui.customizer" @move="setJoy" />
+      <Customizer
+        v-if="ui.customizer"
+        :key="ui.customizer.mode"
+        :mode="ui.customizer.mode"
+        :look="game.profile.look"
+        :name="game.profile.name"
+        @change="(l) => game.applyLook(l)"
+        @done="onCustomDone"
+        @cancel="game.closeCustomizer()"
+      />
 
       <DenahModal v-if="showDenah" @close="showDenah = false" />
       <SeedPicker v-if="ui.seedPicker !== null" @pick="(c) => game.plantSeed(c)" @close="ui.seedPicker = null" />

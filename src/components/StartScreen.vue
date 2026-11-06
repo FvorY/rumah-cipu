@@ -1,6 +1,7 @@
 <script setup>
 import { CATS } from '../game/cat'
 
+defineProps({ name: { type: String, default: '' } })
 defineEmits(['start'])
 
 const swatch = {
@@ -30,7 +31,8 @@ const swatch = {
         </li>
       </ul>
 
-      <button class="go" @click="$emit('start')">Masuk rumah</button>
+      <button class="go" @click="$emit('start', false)">{{ name ? `Masuk sebagai ${name}` : 'Bikin karakter & masuk' }}</button>
+      <button v-if="name" class="alt" @click="$emit('start', true)">Ganti karakter</button>
 
       <p class="controls">
         <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> jalan ·
@@ -126,6 +128,17 @@ h1 {
   font-weight: 900;
   font-size: 17px;
   transition: transform 0.12s, background 0.2s;
+}
+
+.alt {
+  width: 100%;
+  margin-top: 8px;
+  height: 38px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--ink-soft);
+  background: var(--paper-2);
 }
 
 .go:hover {

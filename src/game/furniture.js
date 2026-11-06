@@ -461,6 +461,7 @@ export function buildFurniture(scene, physics) {
   seat('Duduk di kasur', 1.95, 3.83, 0.5, [1, 0])
   seat('Duduk di kasur', 1.95, 10.75, 0.5, [1, 0])
   seat('Duduk di kasur', 1.95, 15.25, 0.5, [1, 0])
+  for (const s of seats.slice(-3)) s.bed = true
   interactables.tvs = []
   // TV dinding di kamar tidur (menghadap kasur, dinding as 3)
   const bedroomTv = (z, y, w, standX) => {

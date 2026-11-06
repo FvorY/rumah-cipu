@@ -323,6 +323,14 @@ export const iconTexture = (kind) => {
       g.beginPath()
       g.ellipse(-10, 10, 6, 10, 0.3, 0, Math.PI * 2)
       g.fill()
+    } else if (kind === 'steam') {
+      const grd = g.createRadialGradient(0, 0, 4, 0, 0, 56)
+      grd.addColorStop(0, 'rgba(255,255,255,0.75)')
+      grd.addColorStop(1, 'rgba(255,255,255,0)')
+      g.fillStyle = grd
+      g.beginPath()
+      g.arc(0, 0, 56, 0, Math.PI * 2)
+      g.fill()
     } else if (kind === 'note') {
       g.fillStyle = '#3b2f2a'
       g.font = '900 80px Nunito, system-ui, sans-serif'

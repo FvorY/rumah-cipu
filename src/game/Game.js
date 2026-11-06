@@ -8,7 +8,7 @@ import { buildMotor } from './motor'
 import { buildRoof } from './roof'
 import { Physics } from './physics'
 import { NavGrid } from './nav'
-import { Player } from './player'
+import { Player, DEFAULT_LOOK, sanitizeLook } from './player'
 import { Cat, CATS } from './cat'
 import { Garden, CROPS, STAGE_TEXT } from './garden'
 import { Fx } from './fx'
@@ -16,6 +16,18 @@ import { Input } from './input'
 import { sound } from './sound'
 import { roomAt, ROOMS, TOUR } from './plan'
 import { loadSave, writeSave } from '../utils/storage'
+
+// titik aktivitas (koordinat denah)
+const SHOWERS = [
+  { x: 0.47, z: 7.86 },
+  { x: 0.47, z: 8.64 },
+]
+const STOVE = { x: 5.65, z: 13.5 }
+const WARDROBES = [
+  { x: 0.98, z: 5.86 },
+  { x: 0.98, z: 12.22 },
+  { x: 0.98, z: 13.73 },
+]
 
 const LAPTOP_LINES = [
   'Masih ada bug di branch main. Nanti aja deh.',
@@ -110,7 +122,9 @@ export class Game {
     this.navCat = new NavGrid(this.physics.colliders, { ...bounds, inflate: 0.13 })
     this.navPlayer = new NavGrid(this.physics.colliders, { ...bounds, inflate: 0.23 })
 
-    this.player = new Player()
+    this.profile = { name: saved.profile?.name || '', look: sanitizeLook(saved.profile?.look || DEFAULT_LOOK) }
+    this.player = new Player(this.profile.look)
+    this.activity = null
     const sp = saved.player || [3.7, -0.7]
     this.player.pos.set(sp[0], 0, -sp[1])
     this.player.facing = saved.player ? (saved.facing ?? Math.PI) : Math.PI
@@ -215,10 +229,13 @@ export class Game {
     cam.dist = THREE.MathUtils.clamp(cam.dist + c.zoom, 3.2, 13)
 
     // gerak
-    const ax = input.axis()
+    let ax = input.axis()
+    if (this.ui.customizer) ax = { x: 0, y: 0 }
     const manual = Math.abs(ax.x) + Math.abs(ax.y) > 0.05
     if (manual && this.auto) this.stopTour()
+    if (manual && this.activity) this.endActivity(true)
     if (manual && player.seat) this.standUp()
+    this.updateActivity(dt)
     const move = new THREE.Vector3()
     let running = input.running
     if (manual) {
@@ -258,7 +275,7 @@ export class Game {
     }
     player.update(dt, move, running)
     if (move.lengthSq() > 0.0001) this.moveDir.copy(move).normalize()
-    if (player.speed > 0.01 && !player.seat) {
+    if (player.speed > 0.01 && !player.seat && !this.activity) {
       const next = player.pos.clone().addScaledVector(this.moveDir, player.speed * dt)
       this.physics.resolve(next, player.radius)
       player.pos.x = next.x
@@ -334,7 +351,14 @@ export class Game {
     const near = (x, z, r) => Math.hypot(p.x - x, p.z - z) < r
     const cands = []
 
+    if (this.activity) {
+      const a = this.activity
+      const label = { shower: 'Selesai mandi', cook: 'Udahan masak', sleep: 'Bangun' }[a.type]
+      acts.push({ key: 'E', label, run: () => this.endActivity(true) })
+      return acts
+    }
     if (this.player.seat) {
+      if (this.player.seat.bed) acts.push({ key: 'E', label: 'Tidur', run: () => this.startSleep(this.player.seat) })
       acts.push({ key: 'Q', label: 'Berdiri', run: () => this.standUp() })
       acts.push({ key: 'C', label: 'Panggil kucing', run: () => this.callCats(), secondary: true })
       return acts
@@ -417,6 +441,11 @@ export class Game {
     const dz = Math.max(Math.abs(p.z - cc.z) - 2.15, 0)
     if (Math.hypot(dx, dz) < 0.55) cands.push({ d: 0.7, act: { key: 'E', label: 'Bunyikan klakson', run: () => this.honk() } })
 
+    // aktivitas harian
+    for (const sh of SHOWERS) if (near(sh.x, -sh.z, 1.0)) cands.push({ d: 0.45, act: { key: 'E', label: 'Mandi', run: () => this.startShower(sh) } })
+    if (near(STOVE.x, -STOVE.z, 0.9)) cands.push({ d: 0.45, act: { key: 'E', label: 'Masak', run: () => this.startCook() } })
+    for (const w of WARDROBES) if (near(w.x, -w.z, 0.8)) cands.push({ d: 0.4, act: { key: 'E', label: 'Ganti baju', run: () => this.openWardrobe(w) } })
+
     // motor: tombol smart key
     const mc = this.motor.center
     const mdx = Math.max(Math.abs(p.x - mc.x) - 0.2, 0)
@@ -463,12 +492,156 @@ export class Game {
 
   trigger(key) {
     if (!this.ui.started || this.ui.seedPicker !== null) return
-    if (key === 'E' && this.player.seat) key = 'Q'
+    // lagi duduk & nggak ada aksi E lain: E = berdiri
+    if (key === 'E' && this.player.seat && !this.actions.some((x) => x.key === 'E')) key = 'Q'
     const a = this.actions.find((x) => x.key === key && !x.disabled)
     if (a?.run) {
       a.run()
       this.syncUI(true)
     }
+  }
+
+  // ---------- aktivitas: mandi, masak, tidur, ganti baju ----------
+  startShower(sh) {
+    const pl = this.player
+    this.standUp()
+    this.activity = { type: 'shower', t: 0, dur: 6, back: { x: pl.pos.x, z: pl.pos.z }, spot: sh, fx: 0 }
+    pl.pos.set(sh.x, 0.05, -sh.z)
+    pl.facing = Math.PI / 2
+    pl.pose = 'shower'
+    sound.shower(6)
+    this.toast('Byur... airnya seger.')
+  }
+
+  startCook() {
+    const pl = this.player
+    this.standUp()
+    this.activity = { type: 'cook', t: 0, dur: 6, back: { x: pl.pos.x, z: pl.pos.z }, fx: 0 }
+    pl.pos.set(STOVE.x, 0, -STOVE.z)
+    pl.facing = Math.PI
+    pl.pose = 'cook'
+    sound.sizzle(6)
+  }
+
+  startSleep(seat) {
+    const pl = this.player
+    this.activity = { type: 'sleep', t: 0, dur: Infinity, seat, fx: 0 }
+    pl.seat = null
+    pl.pose = 'sleep'
+    pl.pos.set(1.65, 0.64, seat.z)
+    pl.facing = Math.PI / 2
+    this.toast('Selamat tidur. Tekan E atau jalan buat bangun.')
+  }
+
+  updateActivity(dt) {
+    const a = this.activity
+    if (!a) return
+    a.t += dt
+    a.fx -= dt
+    const pl = this.player
+    if (a.type === 'shower' && a.fx <= 0) {
+      a.fx = 0.05
+      const v = new THREE.Vector3(pl.pos.x - 0.15 + Math.random() * 0.3, 1.85, pl.pos.z - 0.15 + Math.random() * 0.3)
+      this.fx.spawn('drop', v, { vel: new THREE.Vector3(0, -2.2, 0), life: 0.7 })
+    } else if (a.type === 'cook' && a.fx <= 0) {
+      a.fx = 0.35
+      this.fx.spawn('steam', new THREE.Vector3(STOVE.x + 0.15, 1.05, -(STOVE.z + 0.6)), { size: 0.22 })
+    } else if (a.type === 'sleep' && a.fx <= 0) {
+      a.fx = 1.6
+      this.fx.spawn('z', pl.headWorld().add(new THREE.Vector3(0, 0.25, 0)))
+    }
+    if (a.t >= a.dur) this.endActivity(false)
+  }
+
+  endActivity(early) {
+    const a = this.activity
+    if (!a) return
+    const pl = this.player
+    this.activity = null
+    pl.pose = null
+    if (a.type === 'shower') {
+      pl.pos.set(a.back.x, 0, a.back.z)
+      sound.stopLoop()
+      this.toast(early ? 'Mandinya kilat banget.' : 'Seger! Udah wangi.')
+    } else if (a.type === 'cook') {
+      pl.pos.set(a.back.x, 0, a.back.z)
+      sound.stopLoop()
+      if (early) return this.toast('Kompornya dimatiin dulu.')
+      this.toast(this.cookDish())
+    } else if (a.type === 'sleep') {
+      const spot = this.navPlayer.nearestFree(2.45, a.seat.z) || { x: 2.45, z: a.seat.z }
+      pl.pos.set(spot.x, 0, spot.z)
+      this.toast(a.t > 20 ? 'Bangun tidur, badan seger.' : 'Cuma rebahan bentar.')
+    }
+  }
+
+  // menu tergantung hasil panen di kebun
+  cookDish() {
+    const h = this.garden.harvested
+    const use = (crop, n) => (h[crop] = (h[crop] || 0) - n)
+    let dish
+    if ((h.cabai || 0) >= 3 && (h.tomat || 0) >= 2) {
+      use('cabai', 3)
+      use('tomat', 2)
+      dish = 'sambal tomat'
+    } else if ((h.terong || 0) >= 2 && (h.cabai || 0) >= 2) {
+      use('terong', 2)
+      use('cabai', 2)
+      dish = 'terong balado'
+    } else if ((h.sawi || 0) >= 2) {
+      use('sawi', 2)
+      dish = 'tumis sawi'
+    } else dish = 'mie instan pakai telor'
+    const gimbul = this.cats.find((c) => c.def.id === 'gimbul')
+    if (gimbul && !gimbul.busy && gimbul.state !== 'sleep') {
+      gimbul.follow(10)
+      gimbul.meow()
+    }
+    return `Jadi ${dish}! Gimbul langsung nongol.`
+  }
+
+  openWardrobe(w) {
+    const pl = this.player
+    this.standUp()
+    pl.pos.set(w.x, 0, -w.z)
+    pl.facing = Math.PI / 2
+    this.ui.customizer = { mode: 'wardrobe' }
+    this.setPreviewCam(true)
+  }
+
+  // kamera close-up buat kustomisasi karakter
+  setPreviewCam(on) {
+    if (!on) {
+      this.camOverride = null
+      return
+    }
+    this.camOverride = (cam) => {
+      const p = this.player.pos
+      const f = this.player.facing
+      const ox = Math.sin(f)
+      const oz = Math.cos(f)
+      // agak serong & geser kiri biar karakter nggak ketutup panel
+      cam.position.set(p.x + ox * 2.3 - oz * 0.6, p.y + 1.15, p.z + oz * 2.3 + ox * 0.6)
+      cam.lookAt(p.x - oz * 0.35, p.y + 0.75, p.z + ox * 0.35)
+    }
+  }
+
+  applyLook(look) {
+    this.profile.look = sanitizeLook(look)
+    this.player.setLook(this.profile.look)
+    this.player.play('dress', 0.9)
+  }
+
+  setProfile({ name, look }) {
+    if (typeof name === 'string') this.profile.name = name.trim().slice(0, 16)
+    if (look) this.applyLook(look)
+    this.save()
+  }
+
+  closeCustomizer() {
+    this.ui.customizer = null
+    this.setPreviewCam(false)
+    this.save()
   }
 
   sitDown(seat) {
@@ -775,7 +948,8 @@ export class Game {
     const cats = {}
     for (const c of this.cats) cats[c.def.id] = c.save()
     writeSave({
-      player: this.player.seat ? undefined : [this.player.pos.x, -this.player.pos.z],
+      player: this.player.seat || this.activity ? undefined : [this.player.pos.x, -this.player.pos.z],
+      profile: this.profile,
       facing: this.player.facing,
       cats,
       garden: this.garden.save(),

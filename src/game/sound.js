@@ -181,6 +181,62 @@ export const sound = {
     }
   },
 
+  // noise yang jalan beberapa detik (air shower / minyak di wajan)
+  _loop(seconds, setup) {
+    if (!ensure() || muted) return
+    this.stopLoop()
+    const t = ctx.currentTime
+    const src = ctx.createBufferSource()
+    src.buffer = noise()
+    src.loop = true
+    const g = ctx.createGain()
+    env(g, t, 0.2, 0.22, Math.max(0.1, seconds - 0.6), 0.4)
+    setup(src, g)
+    g.connect(master)
+    src.start(t)
+    src.stop(t + seconds + 0.1)
+    this._src = src
+  },
+  shower(seconds) {
+    this._loop(seconds, (src, g) => {
+      const bp = ctx.createBiquadFilter()
+      bp.type = 'bandpass'
+      bp.frequency.value = 1800
+      bp.Q.value = 0.5
+      src.connect(bp)
+      bp.connect(g)
+    })
+  },
+  sizzle(seconds) {
+    this._loop(seconds, (src, g) => {
+      const hp = ctx.createBiquadFilter()
+      hp.type = 'highpass'
+      hp.frequency.value = 3500
+      // kresek-kresek: volume naik turun acak
+      const am = ctx.createGain()
+      const lfo = ctx.createOscillator()
+      lfo.type = 'square'
+      lfo.frequency.value = 13
+      const lg = ctx.createGain()
+      lg.gain.value = 0.4
+      lfo.connect(lg)
+      lg.connect(am.gain)
+      lfo.start()
+      lfo.stop(ctx.currentTime + seconds + 0.2)
+      src.connect(hp)
+      hp.connect(am)
+      am.connect(g)
+    })
+  },
+  stopLoop() {
+    try {
+      this._src?.stop()
+    } catch {
+      // udah berhenti
+    }
+    this._src = null
+  },
+
   click() {
     if (!ensure() || muted) return
     const t = ctx.currentTime
