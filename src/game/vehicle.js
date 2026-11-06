@@ -4,7 +4,7 @@ import * as THREE from 'three'
 export const SEATED_HIP_HEIGHT = 0.35
 export const VEHICLE_SEATS = {
   car: { driver: [0.1, 0.04, -0.35], passenger: [0.1, 0.04, 0.35] },
-  motor: { driver: [0, 0.84 - SEATED_HIP_HEIGHT, -0.12], passenger: [0, 0.89 - SEATED_HIP_HEIGHT, -0.64] },
+  motor: { driver: [0, 0.30, -0.02], passenger: [0, 0.36, -0.40] },
 }
 
 export function vehicleSeat(root, type, passenger = false) {

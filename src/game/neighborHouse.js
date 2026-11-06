@@ -419,4 +419,3 @@ function makeFenceSection(woodMat, x1, x2, z) {
   }
   return g
 }
-

@@ -139,7 +139,7 @@ export class Net {
     const kind = parts[3]
     const id = parts[4]
     if (!id || id === this.id || id.length > 24) return
-    // hello kosong = orangnya pergi
+    // One broker may disconnect while the other still delivers state. Wait for fresh state before removing anyone.
     if (!buf || buf.length === 0) {
       const peer = this.peers.get(id)
       if (kind === 'hello' && peer && !peer.departureAt) peer.departureAt = performance.now() + DEPARTURE_GRACE
@@ -352,13 +352,13 @@ export class Net {
       const type = this.game.drivingVehicle
       const root = type === 'car' ? this.game.car.group : type === 'motor' ? this.game.motor.root : null
       const pose = type || me.pose || (me.seat ? 'sit' : '')
-      const vehicle = root ? { x: +root.position.x.toFixed(3), z: +root.position.z.toFixed(3), f: +root.rotation.y.toFixed(3), l: type === 'motor' ? root.getObjectByName('bike').rotation.z : 0, n: this.game.neighbor.passengerIn === type } : null
+      const vehicle = root ? { x: +root.position.x.toFixed(3), z: +root.position.z.toFixed(3), f: +Math.atan2(Math.sin(root.rotation.y), Math.cos(root.rotation.y)).toFixed(3), l: type === 'motor' ? root.getObjectByName('bike').rotation.z : 0, n: this.game.neighbor.passengerIn === type } : null
       this.publish(`${BASE}/st/${this.id}`, {
         q: ++this.seq,
         x: +me.pos.x.toFixed(3),
         z: +me.pos.z.toFixed(3),
         y: +me.pos.y.toFixed(3),
-        f: +me.facing.toFixed(3),
+        f: +Math.atan2(Math.sin(me.facing), Math.cos(me.facing)).toFixed(3),
         s: +me.speed.toFixed(2),
         p: pose,
         v: vehicle,
@@ -412,7 +412,16 @@ export class Net {
   }
 
   clearVehicle(p) {
-    if (p.vehicle) this.game.scene.remove(p.vehicle)
+    if (p.vehicle) {
+      if (this.game.drivingVehicle !== p.vehicleType) {
+        const local = this.game[p.vehicleType]
+        const root = p.vehicleType === 'car' ? local.group : local.root
+        root.position.copy(p.vehicle.position)
+        root.rotation.copy(p.vehicle.rotation)
+        local.stopDrive()
+      }
+      this.game.scene.remove(p.vehicle)
+    }
     if (p.passenger) this.game.scene.remove(p.passenger.root)
     p.vehicle = null
     p.vehicleType = null
@@ -476,6 +485,12 @@ export class Net {
     const remotePassenger = [...this.peers.values()].some((p) => p.passenger)
     this.game.neighbor.root.visible = !remotePassenger || this.game.neighbor.isPassenger
     this.game.neighbor.tag.visible = this.game.neighbor.root.visible && !this.game.neighbor.isPassenger
+  }
+
+  dispose() {
+    clearTimeout(this.announceT)
+    this.leave()
+    window.removeEventListener('pageshow', this.onRestore)
   }
 
   leave() {

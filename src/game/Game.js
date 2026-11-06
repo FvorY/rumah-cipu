@@ -99,15 +99,21 @@ export class Game {
     const furn = buildFurniture(scene, this.physics)
     this.interactables = furn.interactables
     const fadeList = [...furn.tall.map((t) => ({ ...t, kind: 'furn' })), ...furn.deco.map((t) => ({ ...t, kind: 'frame' }))]
+    const cutawayMaterials = new Map()
     for (const t of fadeList) {
       const mats = []
       t.object.traverse((o) => {
         if (!o.isMesh) return
-        o.material = o.material.clone()
+        const original = o.material
+        o.material = original.clone()
+        cutawayMaterials.set(original, o.material)
         mats.push({ m: o.material, base: o.material.opacity })
         o.material.transparent = true
       })
       this.pieces.push({ object: t.object, mats, kind: t.kind, y0: 0, y1: t.y1, rect: t.rect, fade: 1 })
+    }
+    for (const tv of [this.interactables.tv, ...this.interactables.tvs]) {
+      tv.screenMat = cutawayMaterials.get(tv.screenMat) || tv.screenMat
     }
     this.interactables.bowl.food = saved.bowl ?? 1
     this.perches = furn.perches
@@ -381,6 +387,8 @@ export class Game {
     if (opened.length && opened.some((d) => d.center.distanceTo(new THREE.Vector2(player.pos.x, player.pos.z)) < 1.3)) sound.click()
     this.car.update(dt)
     this.motor.update(dt)
+    Object.assign(this.perches.find((p) => p.id === 'carHood'), this.car.hood)
+    Object.assign(this.perches.find((p) => p.id === 'jokMotor'), this.motor.seat)
     this.fence.update(dt)
     this.roof.update(dt, this.roofTarget())
     if (this.garden.update(dt, this.time)) this.sound.pop(1.2)
@@ -410,7 +418,7 @@ export class Game {
     )
     this.camera.lookAt(cam.target)
     this.camOverride?.(this.camera)
-    updateCutaway(this.pieces, this.camera.position, new THREE.Vector3(player.pos.x, 0.9, player.pos.z), dt, this.ui.lowWalls)
+    updateCutaway(this.pieces, this.camera.position, player.headWorld(), dt, this.ui.lowWalls)
 
     // UI (nggak perlu tiap frame)
     this.uiT -= dt
@@ -433,8 +441,7 @@ export class Game {
       for (const n of names) out[n] = 0
       return out
     }
-    const p = this.player.pos
-    const head = new THREE.Vector3(p.x, 1.1, p.z)
+    const head = this.player.headWorld()
     for (const n of names) {
       const blocked = this.roof.occludes(n, head, this.camera.position)
       out[n] = blocked ? (n === 'main' ? 0.07 : 0.2) : 1
@@ -764,6 +771,13 @@ export class Game {
       a.fx = 0.35
       this.fx.spawn('steam', new THREE.Vector3(STOVE.x + 0.15, 1.05, -(STOVE.z + 0.6)), { size: 0.22 })
     } else if (a.type === 'sleep' && a.fx <= 0) {
+      const peers = [...this.net.peers.values()].filter((p) => p.target)
+      const conflict = peers.some((p) => p.target.p === 'sleep' && p.id < this.net.selfId && Math.hypot(p.target.x - pl.pos.x, p.target.z - pl.pos.z) < 0.38)
+      if (conflict) {
+        const slot = a.seat.sleepSlots.find((s) => !peers.some((p) => Math.hypot(p.target.x - s.x, p.target.z - s.z) < 0.38))
+        if (slot) pl.pos.set(slot.x, slot.y, slot.z)
+        else { this.endActivity(true); return }
+      }
       a.fx = 1.6
       this.fx.spawn('z', pl.headWorld().add(new THREE.Vector3(0, 0.25, 0)))
     }
@@ -871,7 +885,7 @@ export class Game {
   inviteNeighborToVehicle(veh) {
     if (!this.neighbor) return
     if (this.neighbor.isPassenger) {
-      const dropP = new THREE.Vector3(this.player.pos.x + 0.8, 0, this.player.pos.z)
+      const dropP = this.vehicleExit(this.neighbor.passengerIn, true)
       this.neighbor.exitVehicle(dropP)
       this.toast('Pak Joko turun dari kendaraan.')
       return
@@ -885,6 +899,7 @@ export class Game {
   }
 
   startDrive(vehicle) {
+    if (this.drivingVehicle) this.stopDrive()
     this.standUp()
     this.endActivity(true)
     this.stopTour()
@@ -911,21 +926,30 @@ export class Game {
     sound.stopMotorEngine()
     if (this.drivingVehicle === 'car') {
       this.car.stopDrive()
-      this.player.pos.set(this.car.group.position.x - 1.2, 0, this.car.group.position.z)
+      this.player.pos.copy(this.vehicleExit('car'))
       if (this.neighbor.passengerIn === 'car') {
-        this.neighbor.exitVehicle(new THREE.Vector3(this.car.group.position.x + 1.2, 0, this.car.group.position.z))
+        this.neighbor.exitVehicle(this.vehicleExit('car', true))
       }
     } else if (this.drivingVehicle === 'motor') {
       this.motor.stopDrive()
-      this.player.pos.set(this.motor.root.position.x + 0.45, 0, this.motor.root.position.z)
+      this.player.pos.copy(this.vehicleExit('motor'))
       if (this.neighbor.passengerIn === 'motor') {
-        this.neighbor.exitVehicle(new THREE.Vector3(this.motor.root.position.x - 0.45, 0, this.motor.root.position.z))
+        this.neighbor.exitVehicle(this.vehicleExit('motor', true))
       }
     }
     this.drivingVehicle = null
     this.ui.driving = null
     this.player.seat = null
     this.toast('Kendaraan diparkir.')
+  }
+
+  vehicleExit(type, passenger = false) {
+    const root = type === 'car' ? this.car.group : this.motor.root
+    root.updateWorldMatrix(true, false)
+    const side = passenger ? 1 : -1
+    const pos = (type === 'car' ? new THREE.Vector3(0.08, 0, side * 1.25) : new THREE.Vector3(side * 0.7, 0, -0.2)).applyMatrix4(root.matrixWorld)
+    pos.y = 0
+    return this.physics.resolve(pos, this.player.radius)
   }
 
   greetPeer(peer) {
@@ -1038,7 +1062,7 @@ export class Game {
   standUp() {
     const pl = this.player
     const s = pl.seat
-    if (!s) return
+    if (!s || this.drivingVehicle) return
     pl.seat = null
     const spot = this.spotInRoom(s.x, s.z, s.facing)
     pl.pos.set(spot.x, 0, spot.z)
@@ -1316,6 +1340,7 @@ export class Game {
   toggleMute() {
     this.ui.muted = !this.ui.muted
     sound.setMuted(this.ui.muted)
+    sound.setMusicMuted(!this.ui.music || this.ui.muted)
     if (!this.ui.muted && this.ui.music && !sound.isMusicPlaying()) {
       sound.startBGM()
     }
@@ -1394,7 +1419,7 @@ export class Game {
 
   dispose() {
     this.save()
-    this.net.leave()
+    this.net.dispose()
     sound.stopBGM()
     sound.stopCarEngine()
     sound.stopMotorEngine()

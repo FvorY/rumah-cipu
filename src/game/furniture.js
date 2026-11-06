@@ -482,6 +482,7 @@ export function buildFurniture(scene, physics) {
     const t = flatTv(w)
     at(t.g, 2.905, z, -Math.PI / 2, y)
     interactables.tvs.push({ x: standX, z: -z, screenMat: t.screenMat, on: false })
+    tall.push({ object: t.g, y1: y + t.h / 2, rect: { minX: 2.84, maxX: 2.97, minZ: -z - w / 2, maxZ: -z + w / 2 } })
     return t
   }
 
@@ -538,6 +539,8 @@ export function buildFurniture(scene, physics) {
   put([5.0, 8.2, 5.65, 8.85], [1, 0], (w, d) => coffeeTable(w, d))
   const tv = put([6.32, 7.6, 6.88, 9.45], [-1, 0], tvUnit)
   interactables.tv = { x: 5.95, z: -8.5, label: 'Nyalakan TV', screenMat: tv.screenMat, on: false }
+  const tvBounds = new THREE.Box3().setFromObject(tv.g)
+  tall.push({ object: tv.g, y1: tvBounds.max.y, rect: { minX: tvBounds.min.x, maxX: tvBounds.max.x, minZ: tvBounds.min.z, maxZ: tvBounds.max.z } })
   interactables.tvs.unshift(interactables.tv)
   const painting2 = painting.clone()
   at(painting2, 5.6, 9.9, -Math.PI / 2, 1.6)

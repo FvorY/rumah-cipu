@@ -11,7 +11,7 @@ const ensure = () => {
     if (!AC) return null
     ctx = new AC()
     master = ctx.createGain()
-    master.gain.value = 0.55
+    master.gain.value = muted ? 0 : 0.55
     master.connect(ctx.destination)
     music.init(ctx, master, noise)
   }

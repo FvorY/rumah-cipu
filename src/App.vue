@@ -894,7 +894,7 @@ const closePhotoPreview = () => {
 @media (max-width: 720px) {
   .top-left { max-width: 160px; }
   .online, .stash { max-width: 160px; }
-  .top-right { max-width: calc(100vw - 184px); gap: 4px; }
+  .top-right { max-width: calc(100vw - 200px); gap: 4px; }
   .top-right .chip-btn { font-size: 12px; min-height: 32px; padding: 0 8px; }
   .top-right .chip-btn.icon { width: 32px; padding: 0; }
   .touch .cat-card { display: none; }

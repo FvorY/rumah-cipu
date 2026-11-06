@@ -894,8 +894,16 @@ export class Player {
       let lt = legTarget[i]
       let kt = kneeTarget[i]
       if (sit) {
-        lt = onMotor ? (passenger ? -0.85 : -1.1) : -Math.PI / 2
-        kt = onMotor ? (passenger ? 1.35 : 1.15) : Math.PI / 2
+        if (onMotor) {
+          lt = passenger ? -0.65 : -0.55
+          kt = passenger ? 1.30 : 0.95
+        } else if (inCar) {
+          lt = -1.35
+          kt = 1.25
+        } else {
+          lt = -Math.PI / 2
+          kt = Math.PI / 2
+        }
       } else if (lying) {
         lt = i ? 0.05 : -0.05
         kt = 0.05
@@ -908,7 +916,7 @@ export class Player {
           kt = 0.22
         }
       }
-      this.legs[i].rotation.z = onMotor ? (i ? 0.48 : -0.48) : 0
+      this.legs[i].rotation.z = onMotor ? (passenger ? (i ? 0.36 : -0.36) : (i ? 0.20 : -0.20)) : 0
       const smoothLeg = sit || lying || inAir
       this.legs[i].rotation.x += (lt - this.legs[i].rotation.x) * (smoothLeg ? lk : 1)
       this.knees[i].rotation.x += (kt - this.knees[i].rotation.x) * (smoothLeg ? lk : 1)
@@ -921,9 +929,11 @@ export class Player {
     const bob = inAir || lying || sit ? 0 : Math.abs(Math.cos(this.phase)) * 0.035 * amt
     this.landingSquash += (1 - this.landingSquash) * (1 - Math.exp(-dt * 12))
     const squashCrouch = (1 - this.landingSquash) * -0.06
-    this.body.position.y = bob + (sit || lying ? 0 : squashCrouch)
+    this.body.position.y = bob + (lying ? -0.18 : sit ? 0 : squashCrouch)
+    this.head.position.z = lying ? 0.22 : 0
 
-    this.torso.rotation.x = this.speed > 2 ? 0.12 : 0.03 * amt
+    this.torso.rotation.x = onMotor && !passenger ? 0.22 : this.speed > 2 ? 0.12 : 0.03 * amt
+    for (const arm of this.arms) arm.scale.y = onMotor && !passenger ? 1.15 : 1
     this.torso.rotation.y = sw * 0.08
 
     let la = sw * 0.6
@@ -1031,12 +1041,33 @@ export class Player {
       }
     }
 
-    if ((inCar || onMotor) && !passenger && !this.action) {
-      // dua tangan pegang setir mobil di depan
-      la = ra = onMotor ? -1.4 : -1.25
-      lz = onMotor ? 0.38 : 0.18
-      rz = onMotor ? -0.38 : -0.18
-      headPitch = 0.06
+    if (inCar && !this.action) {
+      if (passenger) {
+        la = ra = -0.75
+        lz = 0.22
+        rz = -0.22
+        headPitch = 0.04
+      } else {
+        // dua tangan pegang setir mobil di depan
+        la = ra = -1.25
+        lz = 0.18
+        rz = -0.18
+        headPitch = 0.06
+      }
+    } else if (onMotor && !this.action) {
+      if (passenger) {
+        // membonceng di belakang: tangan memegang pinggang pengendara
+        la = ra = -0.85
+        lz = 0.18
+        rz = -0.18
+        headPitch = 0.02
+      } else {
+        // mengendarai motor: dua tangan memegang stang (handlebar grip)
+        la = ra = -1.18
+        lz = 0.28
+        rz = -0.28
+        headPitch = -0.08
+      }
     } else if (this.seat && !this.action && !this.pose) {
       // tangan istirahat di pangkuan
       la = ra = -0.75
