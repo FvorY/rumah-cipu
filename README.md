@@ -21,7 +21,7 @@ Karakternya bisa dibikin sendiri (cowok/cewek, kulit, rambut termasuk gaya cowok
 - mandi di shower, tidur di kasur (duduk dulu di kasur, lalu `E`), masak di kompor
 - ganti baju & sepatu di lemari
 - menyetir Honda Mobilio dan mengendarai Honda Vario 150 keliling jalan aspal depan komplek
-- ngobrol dan berinteraksi dengan Pak Joko (tetangga di trotoar depan), memberinya makanan atau mengajaknya nebeng kendaraan
+- ngobrol dan berinteraksi dengan Pak Joko (tetangga di seberang jalan yang punya rumah sendiri dengan teras keramik, kebun depan, dan jadwal aktivitas harian acak: santai ngopi di teras, menyapu, jogging keliling komplek, menyiram tanaman cabai & bunga, hingga berangkat dan pulang bekerja membawa tas kerja)
 
 Masakannya tergantung hasil panen: cabai + tomat jadi sambal tomat, terong + cabai jadi terong balado, sawi jadi tumis sawi. Kalau kebun kosong, ya mie instan telor. Hasil masakan muncul dalam bentuk 3D di meja makan dan bisa disantap atau diberikan ke tetangga.
 

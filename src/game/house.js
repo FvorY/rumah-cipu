@@ -341,10 +341,11 @@ function buildSurroundings(scene, physics) {
   physics.add(-30, -0.075, -16.075, 0.1, 'bound')
   physics.add(7.075, 40, -16.075, 0.1, 'bound')
   physics.add(-40, 40, -40, -16.075, 'bound')
-  // Batas jalan aspal luar
-  physics.add(-40, 40, 7.3, 40, 'bound')
-  physics.add(-35, -28, -2, 8, 'bound')
-  physics.add(35, 42, -2, 8, 'bound')
+  // Batas jalan aspal luar & seberang (area depan rumah Pak Joko x: -0.2 s/d 7.0 terbuka untuk dikunjungi)
+  physics.add(-40, -0.2, 7.5, 30, 'bound')
+  physics.add(7.0, 40, 7.5, 30, 'bound')
+  physics.add(-35, -28, -2, 10, 'bound')
+  physics.add(35, 42, -2, 10, 'bound')
 }
 
 // --- cutaway: dinding yang nutupin karakter dibikin transparan ---

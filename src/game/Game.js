@@ -19,6 +19,7 @@ import { sound } from './sound'
 import { roomAt, ROOMS, TOUR } from './plan'
 import { loadSave, writeSave } from '../utils/storage'
 import { Neighbor } from './neighbor'
+import { createNeighborHouse } from './neighborHouse'
 import { createDishModel } from './food'
 
 // titik aktivitas (koordinat denah)
@@ -142,7 +143,9 @@ export class Game {
     this.carrying = null
     this.churu = saved.churu ?? 1
 
-    this.neighbor = new Neighbor(scene, this.physics)
+    this.neighborHouse = createNeighborHouse(scene, this.physics)
+    this.seats.push(this.neighborHouse.terraceSeat)
+    this.neighbor = new Neighbor(scene, this.physics, this.neighborHouse.spots)
     this.currentDish = null
     this.drivingVehicle = null
 
@@ -365,7 +368,7 @@ export class Game {
     }
 
     // tetangga (Pak Joko)
-    this.neighbor.update(dt, player.pos, this.car, this.motor)
+    this.neighbor.update(dt, player.pos, this.car, this.motor, this.fx)
 
     // kucing, pintu, mobil, kebun
     for (const cat of this.cats) cat.update(dt)
