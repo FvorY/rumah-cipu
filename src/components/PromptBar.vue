@@ -70,10 +70,12 @@ const formatKey = (k) => (k === 'SPACE' ? 'Spasi' : k)
   display: flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   width: max-content;
-  max-width: calc(100vw - 300px);
+  max-width: calc(100vw - 32px);
+  z-index: 10;
+  transition: left 0.25s cubic-bezier(0.2, 0, 0, 1), right 0.25s cubic-bezier(0.2, 0, 0, 1), transform 0.25s cubic-bezier(0.2, 0, 0, 1), max-width 0.25s ease;
 }
 
 .prompt {

@@ -21,6 +21,27 @@ const showDenah = ref(false)
 const toolbar = ref(null)
 const statusPanel = ref(null)
 const hudBottom = ref(120)
+const chatActive = ref(false)
+let chatTimer = null
+
+watch(() => ui.chatOpen, (open) => {
+  if (open) {
+    mapOpen.value = false
+    showHelp.value = false
+  }
+})
+watch(mapOpen, (open) => { if (open) { ui.chatOpen = false; showHelp.value = false } })
+watch(showHelp, (open) => { if (open) { mapOpen.value = false; ui.chatOpen = false } })
+
+watch(() => ui.chatMessages.length, () => {
+  chatActive.value = true
+  clearTimeout(chatTimer)
+  chatTimer = setTimeout(() => {
+    chatActive.value = false
+  }, 7500)
+})
+
+const showChatLog = computed(() => ui.chatOpen || chatActive.value)
 let hudObserver = null
 let game = null
 
@@ -52,6 +73,7 @@ watch([toolbar, statusPanel], ([bar, status]) => {
 onBeforeUnmount(() => {
   hudObserver?.disconnect()
   clearTimeout(toastTimer)
+  clearTimeout(chatTimer)
   game?.dispose()
 })
 
@@ -161,7 +183,7 @@ const closePhotoPreview = () => {
 </script>
 
 <template>
-  <div class="app" :class="{ touch: isTouch, customizing: !!ui.customizer, photoActive: ui.photoMode, chatting: ui.chatOpen, driving: !!ui.driving }" :style="{ '--hud-bottom': `${hudBottom}px` }">
+  <div class="app" :class="{ touch: isTouch, customizing: !!ui.customizer, photoActive: ui.photoMode, chatting: showChatLog, driving: !!ui.driving }" :style="{ '--hud-bottom': `${hudBottom}px` }">
     <canvas ref="canvas" class="scene" :class="photoFilter" />
 
     <Transition name="fade">
@@ -277,14 +299,16 @@ const closePhotoPreview = () => {
       </div>
 
       <!-- Chat UI -->
-      <div v-if="!ui.customizer && !ui.photoMode" class="chat-container">
-        <div v-if="ui.chatOpen" class="chat-log panel">
-          <div v-if="!ui.chatMessages.length" class="chat-empty">Belum ada chat. Sapa yang lain atau Pak Joko!</div>
-          <div v-for="m in ui.chatMessages.slice(-5)" :key="m.id" class="chat-msg" :class="{ self: m.self }">
-            <strong class="chat-sender">{{ m.sender }}:</strong>
-            <span class="chat-text">{{ m.text }}</span>
+      <div v-if="!ui.customizer && !ui.photoMode && showChatLog" class="chat-container">
+        <Transition name="fade">
+          <div v-if="ui.chatMessages.length || ui.chatOpen" class="chat-log panel">
+            <div v-if="!ui.chatMessages.length" class="chat-empty">Belum ada chat. Sapa yang lain atau Pak Joko!</div>
+            <div v-for="m in ui.chatMessages.slice(-5)" :key="m.id" class="chat-msg" :class="{ self: m.self }">
+              <strong class="chat-sender">{{ m.sender }}:</strong>
+              <span class="chat-text">{{ m.text }}</span>
+            </div>
           </div>
-        </div>
+        </Transition>
         <div v-if="ui.chatOpen" class="chat-input-row panel">
           <input
             v-model="chatInput"
@@ -858,13 +882,14 @@ const closePhotoPreview = () => {
 /* ===== Chat UI ===== */
 .chat-container {
   position: absolute;
-  bottom: 86px;
-  left: 14px;
+  bottom: 84px;
+  left: 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 320px;
+  max-width: 330px;
   z-index: 12;
+  pointer-events: auto;
 }
 
 .touch .chat-container {
@@ -875,9 +900,9 @@ const closePhotoPreview = () => {
 
 .chatting .action-prompts.bar {
   left: auto;
-  right: 14px;
+  right: 16px;
   transform: none;
-  max-width: calc(100vw - 370px);
+  max-width: calc(100vw - 380px);
 }
 
 .touch .driving-hud {
@@ -890,6 +915,7 @@ const closePhotoPreview = () => {
 
 .touch .veh-keys { display: none; }
 .touch.chatting .driving-hud { display: none; }
+.touch.driving .toast { top: calc(var(--hud-bottom) + 49px); }
 
 @media (max-width: 720px) {
   .top-left { max-width: 160px; }
