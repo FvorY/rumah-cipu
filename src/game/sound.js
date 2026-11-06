@@ -1,4 +1,5 @@
 // Semua suara disintesis pakai WebAudio, nggak ada file audio.
+import { music } from './music'
 
 let ctx = null
 let master = null
@@ -12,6 +13,7 @@ const ensure = () => {
     master = ctx.createGain()
     master.gain.value = 0.55
     master.connect(ctx.destination)
+    music.init(ctx, master, noise)
   }
   if (ctx.state === 'suspended') ctx.resume()
   return ctx
@@ -40,9 +42,27 @@ export const sound = {
   setMuted(v) {
     muted = v
     if (master) master.gain.value = v ? 0 : 0.55
+    music.setMuted(v)
   },
   get muted() {
     return muted
+  },
+
+  startBGM() {
+    if (!ensure()) return
+    music.start()
+  },
+  stopBGM() {
+    music.stop()
+  },
+  toggleMusic() {
+    return music.toggle()
+  },
+  setMusicMuted(v) {
+    music.setMuted(v)
+  },
+  isMusicPlaying() {
+    return music.isPlaying()
   },
 
   meow(pitch = 1) {

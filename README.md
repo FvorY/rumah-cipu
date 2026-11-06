@@ -4,7 +4,7 @@ Game kecil buat keliling rumah versi 3D, dibikin dari denah rumah 15x7 lantai 1.
 
 Main di sini: https://fvory.github.io/rumah-cipu/
 
-Pakai Vue 3 + Three.js. Semua model (rumah, karakter, kucing, mobil, tanaman) dibentuk dari primitive langsung di kode, suaranya juga disintesis pakai WebAudio, jadi nggak ada file aset yang perlu di-load.
+Pakai Vue 3 + Three.js. Semua model (rumah, karakter, kucing, mobil, tanaman) dibentuk dari primitive langsung di kode, efek suara dan musik latar (BGM ceria & jenaka bergaya game chibi) disintesis murni pakai WebAudio, jadi nggak ada file aset audio yang perlu di-load.
 
 ## Kucing-kucingnya
 
@@ -43,7 +43,7 @@ Tersedia Mode Foto (`P` atau tombol 📸) dengan viewfinder fotografi, pilihan s
 - drag: muter kamera, scroll: zoom
 - `E` interaksi (makan, sapa tetangga/teman, kendarai mobil/motor, masak, mandi), `Q` duduk / berdiri / turun kendaraan, `F` gendong, `R` kasih churu, `C` panggil kucing
 - `G` ajak tetangga jalan bareng / nebeng, `H` klakson kendaraan
-- `P` mode foto, `T` tur rumah otomatis, `V` dinding rendah, `B` atap muncul/hilang, `M` suara
+- `P` mode foto, `T` tur rumah otomatis, `V` dinding rendah, `B` atap muncul/hilang, `M` bisukan semua suara, tombol `🎵` hidupkan/matikan musik latar
 - Klik ruangan di denah kecil (kanan atas) buat jalan otomatis ke sana
 - Tombol **Download denah** di bawah denah kecil: gambar kerja Denah Lantai 1 skala 1:100 (A4) lengkap dengan as, ukuran, pintu, jendela, dan peil lantai. Bisa diunduh PNG, SVG, atau dicetak ke PDF
 - `E` di depan pagar carport buat buka/tutup pagar

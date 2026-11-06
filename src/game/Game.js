@@ -149,7 +149,9 @@ export class Game {
     this.ui.lowWalls = !!saved.lowWalls
     this.ui.roofOn = saved.roofOn ?? true
     this.ui.muted = !!saved.muted
+    this.ui.music = saved.music ?? true
     sound.setMuted(this.ui.muted)
+    sound.setMusicMuted(!this.ui.music || this.ui.muted)
 
     this.tvCanvas = null
     this.input = new Input(canvas)
@@ -203,6 +205,9 @@ export class Game {
   start({ ownerKey = null } = {}) {
     sound.unlock()
     this.ui.started = true
+    if (this.ui.music && !this.ui.muted) {
+      sound.startBGM()
+    }
     if (ownerKey) {
       // pemilik rumah masuk lewat jalur sendiri: muncul di kamarnya, bukan dari pagar
       this.owner = true
@@ -1296,6 +1301,18 @@ export class Game {
   toggleMute() {
     this.ui.muted = !this.ui.muted
     sound.setMuted(this.ui.muted)
+    if (!this.ui.muted && this.ui.music && !sound.isMusicPlaying()) {
+      sound.startBGM()
+    }
+  }
+
+  toggleMusic() {
+    this.ui.music = !this.ui.music
+    sound.setMusicMuted(!this.ui.music || this.ui.muted)
+    if (this.ui.music && !this.ui.muted && !sound.isMusicPlaying()) {
+      sound.startBGM()
+    }
+    this.toast(this.ui.music ? 'Musik latar dinyalakan 🎵' : 'Musik latar dimatikan 🔇')
   }
 
   resetCamera() {
@@ -1356,12 +1373,14 @@ export class Game {
       lowWalls: this.ui.lowWalls,
       roofOn: this.ui.roofOn,
       muted: this.ui.muted,
+      music: this.ui.music,
     })
   }
 
   dispose() {
     this.save()
     this.net.leave()
+    sound.stopBGM()
     clearTimeout(this.tourTimer)
     this.renderer.setAnimationLoop(null)
     this.input.dispose()

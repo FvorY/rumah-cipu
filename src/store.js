@@ -15,6 +15,7 @@ export const ui = reactive({
   lowWalls: false,
   roofOn: true,
   muted: false,
+  music: true,
   map: { player: { x: 0, z: 0, r: 0 }, cats: [] },
   carrying: null,
   customizer: null,
