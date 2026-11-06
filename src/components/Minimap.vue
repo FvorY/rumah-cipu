@@ -122,8 +122,8 @@ const currentRoom = computed(() => roomAt(ui.map.player.x, ui.map.player.z)?.id)
       </g>
     </svg>
     <button class="dl" @click="emit('denah')">
-      <svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round" /></svg>
-      Download denah
+      <svg viewBox="0 0 24 24" width="13" height="13"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      <span>Download denah</span>
     </button>
   </div>
 </template>
@@ -169,17 +169,24 @@ svg {
   margin-top: 6px;
   width: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 7px 4px;
+  gap: 3px;
+  padding: 8px 4px 7px;
   border-radius: 9px;
   background: var(--ink);
   color: var(--paper);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
   transition: transform 0.12s;
+}
+
+.dl svg {
+  flex: none;
 }
 
 .dl:active {
