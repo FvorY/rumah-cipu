@@ -308,14 +308,14 @@ export function createNeighborHouse(scene, physics) {
     label: 'Duduk di teras Pak Joko',
     x: 3.0,
     z: 11.9,
-    y: 0.45,
+    y: 0.56,
     facing: Math.PI,
     pakJokoSeat: { x: 1.8, z: 11.9, y: 0.45, facing: Math.PI },
   }
 
   // Titik-titik aktivitas Pak Joko
   const spots = {
-    terraceChair: new THREE.Vector3(1.8, 0.14, 11.9),
+    terraceChair: new THREE.Vector3(1.8, 0.21, 11.9),
     terraceStanding: new THREE.Vector3(2.4, 0.14, 11.6),
     gardenPots: [
       new THREE.Vector3(1.7, 0.02, 10.2),
@@ -419,3 +419,4 @@ function makeFenceSection(woodMat, x1, x2, z) {
   }
   return g
 }
+

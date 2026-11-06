@@ -465,7 +465,17 @@ export function buildFurniture(scene, physics) {
   seat('Duduk di kasur', 1.95, 11.05, 0.5, [1, 0])
   seat('Duduk di kasur', 1.95, 14.95, 0.5, [1, 0])
   seat('Duduk di kasur', 1.95, 15.55, 0.5, [1, 0])
-  for (const s of seats.slice(-6)) s.bed = true
+  const beds = [
+    { id: 'utama', centerZ: -3.825, width: 1.65 },
+    { id: 'tengah', centerZ: -10.75, width: 1.2 },
+    { id: 'belakang', centerZ: -15.265, width: 1.23 },
+  ]
+  seats.slice(-6).forEach((s, i) => {
+    const bed = beds[Math.floor(i / 2)]
+    const offset = bed.width / 4
+    s.bed = bed.id
+    s.sleepSlots = [-offset, offset].map((dz) => ({ x: 1.65, y: 0.78, z: bed.centerZ + dz, facing: Math.PI / 2 }))
+  })
   interactables.tvs = []
   // TV dinding di kamar tidur (menghadap kasur, dinding as 3)
   const bedroomTv = (z, y, w, standX) => {

@@ -21,6 +21,7 @@ import { loadSave, writeSave } from '../utils/storage'
 import { Neighbor } from './neighbor'
 import { createNeighborHouse } from './neighborHouse'
 import { createDishModel } from './food'
+import { SEATED_HIP_HEIGHT, vehicleFacing } from './vehicle'
 
 // titik aktivitas (koordinat denah)
 const SHOWERS = [
@@ -114,7 +115,7 @@ export class Game {
     this.car = buildCar(scene, this.physics)
     this.motor = buildMotor(scene, this.physics)
     this.perches.push({ id: 'jokMotor', ...this.motor.seat, room: 'teras' })
-    this.seats.push({ label: 'Duduk di motor', x: this.motor.center.x, z: this.motor.center.z - 0.05, y: 0.84, facing: 0 })
+    // Use E to ride the scooter; a fixed seat here would stay behind after driving.
     this.fence = buildFence(scene, this.physics)
     this.doors.push(...this.fence.gates)
     this.roof = buildRoof(scene, this.physics)
@@ -289,17 +290,19 @@ export class Game {
 
     if (this.drivingVehicle === 'car') {
       this.car.drive(dt, ax.x, ax.y, running, this.physics)
+      sound.updateCarEngine(this.car.speed, ax.y, running)
       const seatPos = this.car.driverSeat
       player.pos.copy(seatPos)
-      player.facing = this.car.group.rotation.y - Math.PI / 2
+      player.facing = vehicleFacing(this.car.group, 'car')
       player.seat = { inCar: true }
       player.update(dt, new THREE.Vector3(), false)
     } else if (this.drivingVehicle === 'motor') {
       this.motor.drive(dt, ax.x, ax.y, running, this.physics)
+      sound.updateMotorEngine(this.motor.speed, ax.y, running)
       const seatPos = this.motor.seat
       player.pos.copy(seatPos)
       player.facing = this.motor.root.rotation.y
-      player.seat = { onMotor: true }
+      player.seat = { onMotor: true, lean: this.motor.root.getObjectByName('bike').rotation.z }
       player.update(dt, new THREE.Vector3(), false)
     } else {
       if (manual) {
@@ -347,7 +350,7 @@ export class Game {
       }
 
       // gravitasi & lompat
-      if (!player.isGrounded || player.pos.y > 0 || Math.abs(player.vy) > 0.01) {
+      if (!player.seat && !player.pose && (!player.isGrounded || player.pos.y > 0 || Math.abs(player.vy) > 0.01)) {
         player.vy -= 16.5 * dt
         player.pos.y += player.vy * dt
         if (player.pos.y <= 0) {
@@ -372,7 +375,8 @@ export class Game {
 
     // kucing, pintu, mobil, kebun
     for (const cat of this.cats) cat.update(dt)
-    const actors = [player.pos, ...this.cats.map((c) => c.pos)]
+    const actors = [player.pos, this.neighbor.pos, ...this.net.peers.values()].map((actor) => actor.player?.pos || actor)
+    actors.push(...this.cats.map((c) => c.pos))
     const opened = updateDoors(this.doors, actors, dt)
     if (opened.length && opened.some((d) => d.center.distanceTo(new THREE.Vector2(player.pos.x, player.pos.z)) < 1.3)) sound.click()
     this.car.update(dt)
@@ -728,24 +732,21 @@ export class Game {
 
   startSleep(seat) {
     const pl = this.player
+    const slots = seat.sleepSlots || []
+    const peers = [...this.net.peers.values()].filter((p) => p.target)
+    const free = slots.filter((slot) => !peers.some((p) => Math.hypot(p.target.x - slot.x, p.target.z - slot.z) < 0.38))
+    if (!free.length) return this.toast('Kasurnya sudah penuh. Pilih kasur lain dulu, ya.')
+    free.sort((a, b) => Math.abs(pl.pos.z - a.z) - Math.abs(pl.pos.z - b.z))
+    const slot = free[0]
     this.activity = { type: 'sleep', t: 0, dur: Infinity, seat, fx: 0 }
     pl.seat = null
     pl.pose = 'sleep'
-
-    // Slot tidur ganda agar pemain lain yang tidur di kasur sama bisa sebelahan
-    const slotA = seat.z - 0.38
-    const slotB = seat.z + 0.38
-    const peersSleeping = [...this.net.peers.values()].filter((pr) => pr.player.pose === 'sleep')
-    const peerAtA = peersSleeping.some((pr) => Math.hypot(pr.player.pos.x - 1.65, pr.player.pos.z - slotA) < 0.4)
-    const peerAtB = peersSleeping.some((pr) => Math.hypot(pr.player.pos.x - 1.65, pr.player.pos.z - slotB) < 0.4)
-
-    let targetZ = seat.z
-    if (peerAtA && !peerAtB) targetZ = slotB
-    else if (peerAtB && !peerAtA) targetZ = slotA
-    else targetZ = Math.abs(pl.pos.z - slotA) < Math.abs(pl.pos.z - slotB) ? slotA : slotB
-
-    pl.pos.set(1.65, 0.64, targetZ)
-    pl.facing = Math.PI / 2
+    pl.action = null
+    pl.speed = 0
+    pl.vy = 0
+    pl.isGrounded = true
+    pl.pos.set(slot.x, slot.y, slot.z)
+    pl.facing = slot.facing
     this.toast('Selamat tidur. Tekan E atau jalan buat bangun.')
   }
 
@@ -886,19 +887,28 @@ export class Game {
   startDrive(vehicle) {
     this.standUp()
     this.endActivity(true)
+    this.stopTour()
+    if (this.carrying) this.dropCat(this.carrying)
+    this.player.action = null
+    this.player.vy = 0
+    this.player.isGrounded = true
     this.drivingVehicle = vehicle
     this.ui.driving = vehicle
     if (vehicle === 'car') {
       this.car.startDrive()
+      sound.startCarEngine()
       this.toast('Menyetir Honda Mobilio. WASD gas & belok, Shift ngebut, Q turun.')
     } else {
       this.motor.startDrive()
+      sound.startMotorEngine()
       this.toast('Mengendarai Honda Vario 150. WASD gas & miring belok, Shift ngebut, Q turun.')
     }
   }
 
   stopDrive() {
     if (!this.drivingVehicle) return
+    sound.stopCarEngine()
+    sound.stopMotorEngine()
     if (this.drivingVehicle === 'car') {
       this.car.stopDrive()
       this.player.pos.set(this.car.group.position.x - 1.2, 0, this.car.group.position.z)
@@ -1019,7 +1029,9 @@ export class Game {
     pl.seat = seat
     pl.action = null
     pl.speed = 0
-    pl.pos.set(seat.x, seat.y - 0.35, seat.z)
+    pl.pos.set(seat.x, seat.y - SEATED_HIP_HEIGHT, seat.z)
+    pl.vy = 0
+    pl.isGrounded = true
     pl.facing = seat.facing
   }
 
@@ -1384,6 +1396,8 @@ export class Game {
     this.save()
     this.net.leave()
     sound.stopBGM()
+    sound.stopCarEngine()
+    sound.stopMotorEngine()
     clearTimeout(this.tourTimer)
     this.renderer.setAnimationLoop(null)
     this.input.dispose()

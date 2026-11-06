@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { plateTexture } from './textures'
 import { M } from './furniture'
+import { vehicleSeat } from './vehicle'
 
 // Honda Vario 150 keyless (low-poly), parkir pakai standar samping di teras.
 // Lokal: depan = +z, kiri pengendara = +x. Panjang ~1.92m.
@@ -55,6 +56,7 @@ export function buildMotor(scene, physics, { x = 4.3, z = 3.3 } = {}) {
   const root = new THREE.Group()
   root.name = 'vario150'
   const bike = new THREE.Group()
+  bike.name = 'bike'
   root.add(bike)
 
   const paint = M(PAINT, 0.55, { metalness: 0.15 })
@@ -209,6 +211,7 @@ export function buildMotor(scene, physics, { x = 4.3, z = 3.3 } = {}) {
 
   // standar samping, motor sedikit miring ke kiri
   const stand = place(cyl(0.012, 0.012, 0.32, silver, 6), 0.2, 0.15, -0.05, 0, 0, 0.5)
+  stand.name = 'stand'
   root.add(stand)
   bike.rotation.z = -0.08
   bike.position.x = 0.02
@@ -245,11 +248,11 @@ export function buildMotor(scene, physics, { x = 4.3, z = 3.3 } = {}) {
       return { x: root.position.x, z: root.position.z }
     },
     get seat() {
-      const v = new THREE.Vector3(0, 0.82, -0.15).applyMatrix4(root.matrixWorld)
+      const v = vehicleSeat(root, 'motor')
       return { x: v.x, z: v.z, y: v.y }
     },
     get passengerSeat() {
-      const v = new THREE.Vector3(0, 0.88, -0.52).applyMatrix4(root.matrixWorld)
+      const v = vehicleSeat(root, 'motor', true)
       return { x: v.x, z: v.z, y: v.y }
     },
     get driving() {
@@ -257,6 +260,9 @@ export function buildMotor(scene, physics, { x = 4.3, z = 3.3 } = {}) {
     },
     get speed() {
       return speed
+    },
+    get lean() {
+      return bike.rotation.z
     },
     // fitur answer back: bunyi bip + sein kedip
     answerBack() {
@@ -277,10 +283,12 @@ export function buildMotor(scene, physics, { x = 4.3, z = 3.3 } = {}) {
       bike.rotation.z = -0.08
       bike.position.x = 0.02
       collider.disabled = false
-      collider.minX = root.position.x - 0.22
-      collider.maxX = root.position.x + 0.22
-      collider.minZ = root.position.z - 0.95
-      collider.maxZ = root.position.z + 0.95
+      const hx = Math.abs(Math.cos(root.rotation.y)) * 0.22 + Math.abs(Math.sin(root.rotation.y)) * 0.95
+      const hz = Math.abs(Math.sin(root.rotation.y)) * 0.22 + Math.abs(Math.cos(root.rotation.y)) * 0.95
+      collider.minX = root.position.x - hx
+      collider.maxX = root.position.x + hx
+      collider.minZ = root.position.z - hz
+      collider.maxZ = root.position.z + hz
     },
     drive(dt, steerIn, throttleIn, isFast, physics) {
       if (!driving) return

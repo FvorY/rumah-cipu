@@ -872,16 +872,21 @@ export class Player {
     }
     this.root.rotation.y = this.facing
 
-    // deteksi melayang di udara (baik loncat lokal maupun sinkronisasi multiplayer)
-    const inAir = !this.isGrounded || this.pos.y > 0.04
+    // deteksi duduk di mobil & melayang di udara
+    const inCar = !!this.seat?.inCar
+    const inAir = !this.seat && !this.pose && !this.isGrounded
     this.isGrounded = !inAir
+    const onMotor = !!this.seat?.onMotor
+    const passenger = !!this.seat?.passenger
+    this.body.scale.setScalar(inCar ? 0.8 : 1)
+    this.body.rotation.z = onMotor ? (this.seat.lean || 0) : 0
 
     // animasi jalan
     const amt = Math.min(1, this.speed / 1.7)
     this.phase += dt * (4 + this.speed * 3.4)
     const sw = Math.sin(this.phase) * amt
-    const sit = this.seat ? 1 : 0
     const lying = this.pose === 'sleep'
+    const sit = this.seat && !lying ? 1 : 0
     const lk = 1 - Math.exp(-dt * 10)
     let legTarget = [sw * 0.7, -sw * 0.7]
     let kneeTarget = [Math.max(0, -sw) * 0.7 + 0.08 * amt, Math.max(0, sw) * 0.7 + 0.08 * amt]
@@ -889,8 +894,8 @@ export class Player {
       let lt = legTarget[i]
       let kt = kneeTarget[i]
       if (sit) {
-        lt = -1.5 + (i ? 0.08 : -0.08)
-        kt = 1.45
+        lt = onMotor ? (passenger ? -0.85 : -1.1) : -Math.PI / 2
+        kt = onMotor ? (passenger ? 1.35 : 1.15) : Math.PI / 2
       } else if (lying) {
         lt = i ? 0.05 : -0.05
         kt = 0.05
@@ -903,6 +908,7 @@ export class Player {
           kt = 0.22
         }
       }
+      this.legs[i].rotation.z = onMotor ? (i ? 0.48 : -0.48) : 0
       const smoothLeg = sit || lying || inAir
       this.legs[i].rotation.x += (lt - this.legs[i].rotation.x) * (smoothLeg ? lk : 1)
       this.knees[i].rotation.x += (kt - this.knees[i].rotation.x) * (smoothLeg ? lk : 1)
@@ -912,10 +918,10 @@ export class Player {
     this.body.rotation.x += (lieTarget - this.body.rotation.x) * lk
 
     // bobbing jalan & efek pendaratan (squash lembut)
-    const bob = inAir || lying ? 0 : Math.abs(Math.cos(this.phase)) * 0.035 * amt
+    const bob = inAir || lying || sit ? 0 : Math.abs(Math.cos(this.phase)) * 0.035 * amt
     this.landingSquash += (1 - this.landingSquash) * (1 - Math.exp(-dt * 12))
     const squashCrouch = (1 - this.landingSquash) * -0.06
-    this.body.position.y = bob + squashCrouch
+    this.body.position.y = bob + (sit || lying ? 0 : squashCrouch)
 
     this.torso.rotation.x = this.speed > 2 ? 0.12 : 0.03 * amt
     this.torso.rotation.y = sw * 0.08
@@ -1025,7 +1031,13 @@ export class Player {
       }
     }
 
-    if (this.seat && !this.action && !this.pose) {
+    if ((inCar || onMotor) && !passenger && !this.action) {
+      // dua tangan pegang setir mobil di depan
+      la = ra = onMotor ? -1.4 : -1.25
+      lz = onMotor ? 0.38 : 0.18
+      rz = onMotor ? -0.38 : -0.18
+      headPitch = 0.06
+    } else if (this.seat && !this.action && !this.pose) {
       // tangan istirahat di pangkuan
       la = ra = -0.75
       lz = 0.22

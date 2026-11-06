@@ -119,10 +119,14 @@ const formatKey = (k) => (k === 'SPACE' ? 'Spasi' : k)
   display: flex;
   flex-direction: column-reverse;
   align-items: flex-end;
-  gap: 10px;
+  gap: 8px;
+  max-height: min(55dvh, calc(100dvh - var(--hud-bottom, 120px) - 30px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .round {
+  flex-shrink: 0;
   min-width: 64px;
   max-width: 150px;
   min-height: 46px;

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { plateTexture } from './textures'
 import { M } from './furniture'
+import { vehicleSeat } from './vehicle'
 
 // Honda Mobilio. Panjang ~4.4m, lebar ~1.68m.
 // Lokal: depan = +x, lebar di sumbu z.
@@ -348,10 +349,10 @@ export function buildCar(scene, physics, { x = 5.8, z = 2.3 } = {}) {
       return { x: v.x, z: v.z, y: v.y }
     },
     get driverSeat() {
-      return new THREE.Vector3(0.2, 0.45, -0.38).applyMatrix4(car.matrixWorld)
+      return vehicleSeat(car, 'car')
     },
     get passengerSeat() {
-      return new THREE.Vector3(0.2, 0.45, 0.38).applyMatrix4(car.matrixWorld)
+      return vehicleSeat(car, 'car', true)
     },
     get driving() {
       return driving
@@ -372,10 +373,12 @@ export function buildCar(scene, physics, { x = 5.8, z = 2.3 } = {}) {
       speed = 0
       steer = 0
       collider.disabled = false
-      collider.minX = car.position.x - 0.86
-      collider.maxX = car.position.x + 0.86
-      collider.minZ = car.position.z - 2.15
-      collider.maxZ = car.position.z + 2.15
+      const hx = Math.abs(Math.cos(car.rotation.y)) * 2.15 + Math.abs(Math.sin(car.rotation.y)) * 0.86
+      const hz = Math.abs(Math.sin(car.rotation.y)) * 2.15 + Math.abs(Math.cos(car.rotation.y)) * 0.86
+      collider.minX = car.position.x - hx
+      collider.maxX = car.position.x + hx
+      collider.minZ = car.position.z - hz
+      collider.maxZ = car.position.z + hz
       headMat.emissiveIntensity = 0
       for (const fg of frontSteerGroups) fg.rotation.y = 0
     },

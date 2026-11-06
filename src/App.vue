@@ -18,6 +18,10 @@ const isTouch = ref(false)
 const mapOpen = ref(true)
 const showHelp = ref(false)
 const showDenah = ref(false)
+const toolbar = ref(null)
+const statusPanel = ref(null)
+const hudBottom = ref(120)
+let hudObserver = null
 let game = null
 
 onMounted(() => {
@@ -34,9 +38,22 @@ onMounted(() => {
     })
   }
   if (import.meta.env.DEV) window.__game = game
+  hudObserver = new ResizeObserver(() => {
+    hudBottom.value = Math.max(toolbar.value?.getBoundingClientRect().bottom || 0, statusPanel.value?.getBoundingClientRect().bottom || 0) + 10
+  })
 })
 
-onBeforeUnmount(() => game?.dispose())
+watch([toolbar, statusPanel], ([bar, status]) => {
+  hudObserver?.disconnect()
+  if (bar) hudObserver?.observe(bar)
+  if (status) hudObserver?.observe(status)
+}, { flush: 'post' })
+
+onBeforeUnmount(() => {
+  hudObserver?.disconnect()
+  clearTimeout(toastTimer)
+  game?.dispose()
+})
 
 const profileName = ref('')
 // jalur pemilik: cuma aktif kalau dibuka lewat #ferdy, nggak ada tombolnya di mana pun
@@ -144,7 +161,7 @@ const closePhotoPreview = () => {
 </script>
 
 <template>
-  <div class="app" :class="{ touch: isTouch, customizing: !!ui.customizer, photoActive: ui.photoMode }">
+  <div class="app" :class="{ touch: isTouch, customizing: !!ui.customizer, photoActive: ui.photoMode, chatting: ui.chatOpen, driving: !!ui.driving }" :style="{ '--hud-bottom': `${hudBottom}px` }">
     <canvas ref="canvas" class="scene" :class="photoFilter" />
 
     <Transition name="fade">
@@ -152,7 +169,7 @@ const closePhotoPreview = () => {
     </Transition>
 
     <template v-if="ui.started">
-      <div v-if="!ui.photoMode" class="top-left">
+      <div v-if="!ui.photoMode" ref="statusPanel" class="top-left">
         <div class="room panel">
           <span class="room-label">Lagi di</span>
           <Transition name="swap" mode="out-in">
@@ -171,7 +188,7 @@ const closePhotoPreview = () => {
         </div>
       </div>
 
-      <div v-if="!ui.photoMode" class="top-right">
+      <div v-if="!ui.photoMode" ref="toolbar" class="top-right">
         <button class="chip-btn" :class="{ on: ui.photoMode }" title="Mode Foto (P)" @click="game.togglePhotoMode()">
           📸 Foto
         </button>
@@ -261,7 +278,7 @@ const closePhotoPreview = () => {
 
       <!-- Chat UI -->
       <div v-if="!ui.customizer && !ui.photoMode" class="chat-container">
-        <div v-if="ui.chatOpen || ui.chatMessages.length" class="chat-log panel">
+        <div v-if="ui.chatOpen" class="chat-log panel">
           <div v-if="!ui.chatMessages.length" class="chat-empty">Belum ada chat. Sapa yang lain atau Pak Joko!</div>
           <div v-for="m in ui.chatMessages.slice(-5)" :key="m.id" class="chat-msg" :class="{ self: m.self }">
             <strong class="chat-sender">{{ m.sender }}:</strong>
@@ -325,7 +342,7 @@ const closePhotoPreview = () => {
         <div v-if="toastVisible && ui.toast && !ui.photoMode" :key="ui.toast.id" class="toast">{{ ui.toast.text }}</div>
       </Transition>
 
-      <PromptBar v-if="!ui.customizer && !ui.photoMode" :prompts="ui.prompts" :touch="isTouch" @trigger="trigger" />
+      <PromptBar v-if="!ui.customizer && !ui.photoMode" :prompts="ui.prompts" :touch="isTouch" class="action-prompts" @trigger="trigger" />
       <Joystick v-if="isTouch && !ui.customizer && !ui.photoMode" @move="setJoy" />
       <Customizer
         v-if="ui.customizer"
@@ -498,7 +515,7 @@ const closePhotoPreview = () => {
   gap: 6px;
   flex-wrap: wrap;
   justify-content: flex-end;
-  max-width: 60vw;
+  max-width: calc(100vw - 210px);
 }
 
 .chip-btn.icon {
@@ -509,13 +526,13 @@ const closePhotoPreview = () => {
 
 .minimap {
   position: absolute;
-  top: 64px;
+  top: var(--hud-bottom);
   right: 14px;
 }
 
 .help {
   position: absolute;
-  top: 64px;
+  top: var(--hud-bottom);
   left: 50%;
   transform: translateX(-50%);
   padding: 12px 16px;
@@ -576,7 +593,8 @@ const closePhotoPreview = () => {
 
 .toast {
   position: absolute;
-  top: 70px;
+  top: var(--hud-bottom);
+  z-index: 20;
   left: 50%;
   transform: translateX(-50%);
   background: var(--ink);
@@ -592,7 +610,7 @@ const closePhotoPreview = () => {
 
 .touch .cat-card {
   bottom: auto;
-  top: 120px;
+  top: var(--hud-bottom);
   transform-origin: top left;
   transform: scale(0.88);
 }
@@ -603,7 +621,8 @@ const closePhotoPreview = () => {
 
 @media (max-width: 720px) {
   .minimap {
-    top: 108px;
+    max-height: calc(100dvh - var(--hud-bottom) - 190px);
+    overflow-y: auto;
   }
   .room strong {
     font-size: 16px;
@@ -839,7 +858,7 @@ const closePhotoPreview = () => {
 /* ===== Chat UI ===== */
 .chat-container {
   position: absolute;
-  bottom: 24px;
+  bottom: 86px;
   left: 14px;
   display: flex;
   flex-direction: column;
@@ -849,8 +868,39 @@ const closePhotoPreview = () => {
 }
 
 .touch .chat-container {
-  bottom: 84px;
+  top: var(--hud-bottom);
+  bottom: auto;
+  max-width: min(320px, calc(100vw - 28px));
 }
+
+.chatting .action-prompts.bar {
+  left: auto;
+  right: 14px;
+  transform: none;
+  max-width: calc(100vw - 370px);
+}
+
+.touch .driving-hud {
+  top: var(--hud-bottom);
+  bottom: auto;
+  left: 14px;
+  transform: none;
+  align-items: flex-start;
+}
+
+.touch .veh-keys { display: none; }
+.touch.chatting .driving-hud { display: none; }
+
+@media (max-width: 720px) {
+  .top-left { max-width: 160px; }
+  .online, .stash { max-width: 160px; }
+  .top-right { max-width: calc(100vw - 184px); gap: 4px; }
+  .top-right .chip-btn { font-size: 12px; min-height: 32px; padding: 0 8px; }
+  .top-right .chip-btn.icon { width: 32px; padding: 0; }
+  .touch .cat-card { display: none; }
+  .toast { width: max-content; max-width: calc(100vw - 28px); }
+}
+
 
 .chat-log {
   padding: 8px 12px;
@@ -912,7 +962,7 @@ const closePhotoPreview = () => {
 /* ===== Driving HUD ===== */
 .driving-hud {
   position: absolute;
-  top: max(14px, env(safe-area-inset-top));
+  bottom: 86px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -920,7 +970,8 @@ const closePhotoPreview = () => {
   align-items: center;
   gap: 4px;
   padding: 8px 16px;
-  z-index: 15;
+  max-width: calc(100vw - 28px);
+  z-index: 10;
 }
 
 .veh-title {

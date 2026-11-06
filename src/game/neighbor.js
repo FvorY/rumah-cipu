@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { Player } from './player'
 import { makeNameTag } from './net'
+import { NavGrid } from './nav'
+import { vehicleFacing } from './vehicle'
 
 // Tetangga ramah di seberang jalan (Pak Joko)
 // Memiliki rumah sendiri di seberang jalan dengan jadwal aktivitas acak:
@@ -13,6 +15,9 @@ export class Neighbor {
   constructor(scene, physics, spots = null) {
     this.scene = scene
     this.physics = physics
+    this.nav = new NavGrid(physics.colliders, { minX: -28, maxX: 35, minZ: -16.5, maxZ: 16.5, cell: 0.2, inflate: 0.24 })
+    this.route = []
+    this.routeTarget = null
 
     this.spots = spots || {
       terraceChair: new THREE.Vector3(1.8, 0.14, 11.9),
@@ -165,7 +170,13 @@ export class Neighbor {
   enterVehicle(vehicleType) {
     this.passengerIn = vehicleType
     if (this.tag) this.tag.visible = false
-    this.player.seat = { inCar: vehicleType === 'car', onMotor: vehicleType === 'motor' }
+    this.player.seat = { inCar: vehicleType === 'car', onMotor: vehicleType === 'motor', passenger: true }
+    this.player.action = null
+    this.player.pose = null
+    this.player.vy = 0
+    this.player.isGrounded = true
+    this.briefcase.visible = false
+    this.player.can.visible = false
   }
 
   exitVehicle(dropPos) {
@@ -183,14 +194,18 @@ export class Neighbor {
     this.activityTimer = 28 + Math.random() * 25
     this.navTarget = null
     this.navQueue = []
+    this.route = []
+    this.routeTarget = null
     this.player.seat = null
+    this.player.action = null
     this.briefcase.visible = false
     this.player.can.visible = false
 
     if (act === 'home') {
       this.subState = 'sit'
       this.subTimer = 14 + Math.random() * 10
-      this.navQueue = [this.spots.gateEntrance, this.spots.terraceStanding, this.spots.terraceChair]
+      this.navQueue = this.pos.z < 9 ? [this.spots.sidewalkFront, this.spots.gateEntrance] : []
+      this.navQueue.push(this.spots.terraceStanding, this.spots.terraceChair)
       this.updateTag('Santai di Teras ☕')
     } else if (act === 'jogging') {
       this.jogIndex = 0
@@ -218,20 +233,20 @@ export class Neighbor {
   update(dt, playerPos, carObj, motorObj, fx = null) {
     // 1. Sedang menumpang kendaraan pemain (Mobilio / Vario)
     if (this.passengerIn === 'car' && carObj) {
-      const seatWorld = new THREE.Vector3(0.5, 0.45, 0.4).applyMatrix4(carObj.group.matrixWorld)
+      const seatWorld = carObj.passengerSeat
       this.pos.copy(seatWorld)
-      this.player.facing = carObj.group.rotation.y
-      this.player.seat = { inCar: true }
+      this.player.facing = vehicleFacing(carObj.group, 'car')
+      this.player.seat = { inCar: true, passenger: true }
       this.player.update(dt, new THREE.Vector3(), false)
       if (this.tag) this.tag.position.set(this.pos.x, this.pos.y + 1.6, this.pos.z)
       return
     }
 
     if (this.passengerIn === 'motor' && motorObj) {
-      const seatWorld = new THREE.Vector3(0, 0.88, -0.48).applyMatrix4(motorObj.root.matrixWorld)
+      const seatWorld = motorObj.passengerSeat
       this.pos.copy(seatWorld)
       this.player.facing = motorObj.root.rotation.y
-      this.player.seat = { onMotor: true }
+      this.player.seat = { onMotor: true, passenger: true, lean: motorObj.root.getObjectByName('bike').rotation.z }
       this.player.update(dt, new THREE.Vector3(), false)
       if (this.tag) this.tag.position.set(this.pos.x, this.pos.y + 1.6, this.pos.z)
       return
@@ -260,7 +275,7 @@ export class Neighbor {
     let isRunning = false
 
     if (this.activity === 'home') {
-      this.handleHomeActivity(dt)
+      this.handleHomeActivity(dt, moveVec)
     } else if (this.activity === 'jogging') {
       isRunning = true
       this.handleJoggingActivity(dt, moveVec)
@@ -273,7 +288,7 @@ export class Neighbor {
     // 5. Update gerakan dan animasi karakter
     if (moveVec.lengthSq() > 0.0001) {
       const spd = isRunning ? 2.1 : 1.15
-      this.pos.addScaledVector(moveVec, dt * spd)
+      this.pos.addScaledVector(moveVec, Math.min(dt * spd, this.moveDistance ?? Infinity))
       this.physics.resolve(this.pos, this.player.radius)
       const wantFace = Math.atan2(moveVec.x, moveVec.z)
       let df = wantFace - this.player.facing
@@ -281,6 +296,8 @@ export class Neighbor {
       this.player.facing += df * Math.min(1, dt * 10)
     }
 
+    if (!this.player.seat) this.pos.y = this.pos.z >= 11.3 && this.pos.x < 4.2 ? 0.14 : 0.02
+    this.player.isGrounded = true
     this.player.update(dt, moveVec, isRunning)
     if (this.tag) {
       const h = this.player.seat ? 1.45 : 1.78
@@ -289,49 +306,51 @@ export class Neighbor {
   }
 
   // --- Penanganan Aktivitas 'home' ---
-  handleHomeActivity(dt) {
-    if (this.navQueue.length > 0) {
-      const target = this.navQueue[0]
-      const d = Math.hypot(target.x - this.pos.x, target.z - this.pos.z)
-      if (d > 0.25) {
-        const dx = target.x - this.pos.x
-        const dz = target.z - this.pos.z
-        const dist = Math.hypot(dx, dz)
-        this.pos.x += (dx / dist) * dt * 1.1
-        this.pos.z += (dz / dist) * dt * 1.1
-        this.player.facing = Math.atan2(dx, dz)
-        this.player.seat = null
-      } else {
-        this.navQueue.shift()
-      }
+  handleHomeActivity(dt, moveVec) {
+    if (this.navQueue.length) {
+      this.player.seat = null
+      if (this.walkToward(this.navQueue[0], moveVec, 0.08)) this.navQueue.shift()
       return
     }
-
     this.subTimer -= dt
     if (this.subTimer <= 0) {
-      if (this.subState === 'sit') {
-        this.subState = 'sweep'
-        this.subTimer = 10 + Math.random() * 8
-        this.player.seat = null
-        this.pos.copy(this.spots.terraceStanding)
-        this.updateTag('Menyapu Teras 🧹')
-      } else {
-        this.subState = 'sit'
-        this.subTimer = 14 + Math.random() * 8
-        this.updateTag('Santai di Teras ☕')
-      }
+      this.subState = this.subState === 'sit' ? 'sweep' : 'sit'
+      this.subTimer = 14 + Math.random() * 8
+      this.player.seat = null
+      this.player.action = null
+      this.navQueue = [this.subState === 'sit' ? this.spots.terraceChair : this.spots.terraceStanding]
+      this.updateTag(this.subState === 'sit' ? 'Santai di Teras ☕' : 'Menyapu Teras 🧹')
+      return
     }
-
     if (this.subState === 'sit') {
       this.pos.copy(this.spots.terraceChair)
       this.player.seat = { terrace: true }
       this.player.facing = Math.PI
-    } else if (this.subState === 'sweep') {
-      this.player.seat = null
-      if (!this.player.action) {
-        this.player.play('pet', 2.0)
-      }
+    } else if (!this.player.action) {
+      this.player.play('pet', 2.0)
     }
+  }
+
+  // All activities use the same collision-aware route AND the same walking animation.
+  walkToward(target, moveVec, tolerance = 0.25) {
+    if (Math.hypot(target.x - this.pos.x, target.z - this.pos.z) <= tolerance) {
+      this.routeTarget = null
+      this.route = []
+      return true
+    }
+    if (this.routeTarget !== target) {
+      this.nav.rebuild(this.physics.colliders)
+      this.route = this.nav.findPath(this.pos, target) || []
+      this.routeTarget = target
+    }
+    while (this.route.length && Math.hypot(this.route[0].x - this.pos.x, this.route[0].z - this.pos.z) < 0.08) this.route.shift()
+    const next = this.route[0] || target
+    const dx = next.x - this.pos.x
+    const dz = next.z - this.pos.z
+    const d = Math.hypot(dx, dz)
+    this.moveDistance = d
+    if (d > 0.001) moveVec.set(dx / d, 0, dz / d)
+    return false
   }
 
   // --- Penanganan Aktivitas 'jogging' ---
@@ -339,29 +358,14 @@ export class Neighbor {
     this.player.seat = null
     if (this.navQueue.length > 0) {
       const target = this.navQueue[0]
-      const d = Math.hypot(target.x - this.pos.x, target.z - this.pos.z)
-      if (d > 0.3) {
-        const dx = target.x - this.pos.x
-        const dz = target.z - this.pos.z
-        const dist = Math.hypot(dx, dz)
-        moveVec.set(dx / dist, 0, dz / dist)
-      } else {
-        this.navQueue.shift()
-      }
+      if (this.walkToward(target, moveVec, 0.15)) this.navQueue.shift()
       return
     }
 
     // Melintasi titik waypoints jogging di jalan komplek
     const wpList = this.spots.jogWaypoints
     const wp = wpList[this.jogIndex % wpList.length]
-    const dx = wp.x - this.pos.x
-    const dz = wp.z - this.pos.z
-    const d = Math.hypot(dx, dz)
-    if (d > 0.4) {
-      moveVec.set(dx / d, 0, dz / d)
-    } else {
-      this.jogIndex++
-    }
+    if (this.walkToward(wp, moveVec, 0.3)) this.jogIndex++
   }
 
   // --- Penanganan Aktivitas 'gardening' ---
@@ -372,10 +376,7 @@ export class Neighbor {
     const d = Math.hypot(curPot.x - this.pos.x, curPot.z - this.pos.z)
 
     if (d > 0.3) {
-      const dx = curPot.x - this.pos.x
-      const dz = curPot.z - this.pos.z
-      const dist = Math.hypot(dx, dz)
-      moveVec.set(dx / dist, 0, dz / dist)
+      this.walkToward(curPot, moveVec, 0.3)
       this.player.can.visible = false
     } else {
       // Sampai di pot bunga: siram tanaman
@@ -407,15 +408,7 @@ export class Neighbor {
       this.updateTag('Berangkat Kerja 💼')
       if (this.navQueue.length > 0) {
         const target = this.navQueue[0]
-        const d = Math.hypot(target.x - this.pos.x, target.z - this.pos.z)
-        if (d > 0.35) {
-          const dx = target.x - this.pos.x
-          const dz = target.z - this.pos.z
-          const dist = Math.hypot(dx, dz)
-          moveVec.set(dx / dist, 0, dz / dist)
-        } else {
-          this.navQueue.shift()
-        }
+        if (this.walkToward(target, moveVec, 0.15)) this.navQueue.shift()
       } else {
         // Sampai di ujung jalan komplek / halte kantor
         this.workPhase = 'atWork'
@@ -434,15 +427,7 @@ export class Neighbor {
     } else if (this.workPhase === 'returning') {
       if (this.navQueue.length > 0) {
         const target = this.navQueue[0]
-        const d = Math.hypot(target.x - this.pos.x, target.z - this.pos.z)
-        if (d > 0.35) {
-          const dx = target.x - this.pos.x
-          const dz = target.z - this.pos.z
-          const dist = Math.hypot(dx, dz)
-          moveVec.set(dx / dist, 0, dz / dist)
-        } else {
-          this.navQueue.shift()
-        }
+        if (this.walkToward(target, moveVec, 0.15)) this.navQueue.shift()
       } else {
         // Sampai di rumah kembali
         this.briefcase.visible = false

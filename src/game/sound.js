@@ -35,6 +35,92 @@ const env = (g, t, a, peak, hold, rel) => {
   g.gain.exponentialRampToValueAtTime(0.0001, t + a + hold + rel)
 }
 
+let carEngine = null
+let motorEngine = null
+
+const createEngine = (isMotor = false) => {
+  if (!ensure()) return null
+  const now = ctx.currentTime
+
+  const osc1 = ctx.createOscillator()
+  osc1.type = isMotor ? 'sawtooth' : 'triangle'
+  const osc2 = ctx.createOscillator()
+  osc2.type = isMotor ? 'triangle' : 'sawtooth'
+  const sub = ctx.createOscillator()
+  sub.type = 'sine'
+
+  const baseFreq = isMotor ? 54 : 38
+  osc1.frequency.setValueAtTime(baseFreq, now)
+  osc2.frequency.setValueAtTime(baseFreq * 1.02 + 1.2, now)
+  sub.frequency.setValueAtTime(baseFreq * 0.5, now)
+
+  const filter = ctx.createBiquadFilter()
+  filter.type = isMotor ? 'bandpass' : 'lowpass'
+  filter.frequency.setValueAtTime(isMotor ? 650 : 220, now)
+  filter.Q.value = isMotor ? 2.5 : 2.0
+
+  const gain = ctx.createGain()
+  gain.gain.setValueAtTime(0.0001, now)
+  gain.gain.linearRampToValueAtTime(isMotor ? 0.16 : 0.18, now + 0.15)
+
+  osc1.connect(filter)
+  osc2.connect(filter)
+  sub.connect(gain)
+  filter.connect(gain)
+  gain.connect(master)
+
+  osc1.start(now)
+  osc2.start(now)
+  sub.start(now)
+
+  return { osc1, osc2, sub, filter, gain, isMotor }
+}
+
+const updateEngine = (eng, speed, throttle, isFast) => {
+  if (!eng || !ctx) return
+  const now = ctx.currentTime
+  const isMotor = eng.isMotor
+  const maxSpd = isMotor ? (isFast ? 7.5 : 4.8) : (isFast ? 6.5 : 4.2)
+  const r = Math.min(1, Math.max(0, Math.abs(speed) / maxSpd))
+  const gas = throttle > 0 ? (isFast ? 1 : 0.6) : 0
+  const rev = throttle < 0 ? 0.3 : 0
+
+  const base = isMotor ? 52 : 36
+  const pitchMult = isMotor ? 75 : 55
+  const targetFreq = base + r * pitchMult + gas * (isMotor ? 45 : 32) + rev * 15
+
+  eng.osc1.frequency.setTargetAtTime(targetFreq, now, 0.08)
+  eng.osc2.frequency.setTargetAtTime(targetFreq * 1.02 + 1.2, now, 0.08)
+  eng.sub.frequency.setTargetAtTime(targetFreq * 0.5, now, 0.08)
+
+  const baseCutoff = isMotor ? 650 : 200
+  const targetCutoff = baseCutoff + r * (isMotor ? 800 : 420) + gas * (isMotor ? 350 : 200)
+  eng.filter.frequency.setTargetAtTime(targetCutoff, now, 0.08)
+
+  const targetVol = muted ? 0 : (isMotor ? 0.16 : 0.18) + r * 0.08 + gas * 0.05
+  eng.gain.gain.setTargetAtTime(targetVol, now, 0.06)
+}
+
+const stopEngine = (eng) => {
+  if (!eng || !ctx) return null
+  const now = ctx.currentTime
+  eng.gain.gain.cancelScheduledValues(now)
+  eng.gain.gain.setTargetAtTime(0.0001, now, 0.1)
+  setTimeout(() => {
+    try {
+      eng.osc1.stop()
+      eng.osc2.stop()
+      eng.sub.stop()
+      eng.osc1.disconnect()
+      eng.osc2.disconnect()
+      eng.sub.disconnect()
+      eng.filter.disconnect()
+      eng.gain.disconnect()
+    } catch {}
+  }, 250)
+  return null
+}
+
 export const sound = {
   unlock() {
     ensure()
@@ -42,6 +128,8 @@ export const sound = {
   setMuted(v) {
     muted = v
     if (master) master.gain.value = v ? 0 : 0.55
+    if (carEngine && ctx) carEngine.gain.gain.setTargetAtTime(v ? 0 : 0.18, ctx.currentTime, 0.05)
+    if (motorEngine && ctx) motorEngine.gain.gain.setTargetAtTime(v ? 0 : 0.16, ctx.currentTime, 0.05)
     music.setMuted(v)
   },
   get muted() {
@@ -63,6 +151,30 @@ export const sound = {
   },
   isMusicPlaying() {
     return music.isPlaying()
+  },
+
+  startCarEngine() {
+    if (carEngine) return
+    carEngine = createEngine(false)
+  },
+  updateCarEngine(speed, throttle, isFast) {
+    if (!carEngine) carEngine = createEngine(false)
+    updateEngine(carEngine, speed, throttle, isFast)
+  },
+  stopCarEngine() {
+    carEngine = stopEngine(carEngine)
+  },
+
+  startMotorEngine() {
+    if (motorEngine) return
+    motorEngine = createEngine(true)
+  },
+  updateMotorEngine(speed, throttle, isFast) {
+    if (!motorEngine) motorEngine = createEngine(true)
+    updateEngine(motorEngine, speed, throttle, isFast)
+  },
+  stopMotorEngine() {
+    motorEngine = stopEngine(motorEngine)
   },
 
   meow(pitch = 1) {
