@@ -606,7 +606,7 @@ export class Game {
       if (early) return this.toast('Kompornya dimatiin dulu.')
       this.toast(this.cookDish())
     } else if (a.type === 'sleep') {
-      const spot = this.navPlayer.nearestFree(2.45, a.seat.z) || { x: 2.45, z: a.seat.z }
+      const spot = this.spotInRoom(a.seat.x, a.seat.z, a.seat.facing)
       pl.pos.set(spot.x, 0, spot.z)
       this.toast(a.t > 20 ? 'Bangun tidur, badan seger.' : 'Cuma rebahan bentar.')
     }
@@ -704,10 +704,25 @@ export class Game {
     const s = pl.seat
     if (!s) return
     pl.seat = null
-    const spot =
-      this.navPlayer.nearestFree(s.x + Math.sin(s.facing) * 0.5, s.z + Math.cos(s.facing) * 0.5) ||
-      this.navPlayer.nearestFree(s.x, s.z) || { x: s.x, z: s.z }
+    const spot = this.spotInRoom(s.x, s.z, s.facing)
     pl.pos.set(spot.x, 0, spot.z)
+  }
+
+  // titik berdiri di dekat (x, z) yang PASTI masih di ruangan yang sama,
+  // biar nggak "mental" nembus dinding ke ruangan / halaman sebelah
+  spotInRoom(x, z, facing = 0) {
+    const nav = this.navPlayer
+    const room = roomAt(x, -z)?.id
+    const sameRoom = (px, pz) => roomAt(px, -pz)?.id === room
+    // coba depan, belakang, kiri, kanan kursi dulu
+    for (const a of [0, Math.PI, Math.PI / 2, -Math.PI / 2]) {
+      for (const d of [0.5, 0.65, 0.8]) {
+        const px = x + Math.sin(facing + a) * d
+        const pz = z + Math.cos(facing + a) * d
+        if (nav.isFree(px, pz) && sameRoom(px, pz)) return { x: px, z: pz }
+      }
+    }
+    return nav.nearestFree(x, z, 40, sameRoom) || nav.nearestFree(x, z) || { x, z }
   }
 
   pickCat(cat) {

@@ -57,9 +57,9 @@ export class NavGrid {
     return !this.blocked[j * this.w + i]
   }
 
-  nearestFree(x, z, maxR = 30) {
+  nearestFree(x, z, maxR = 30, accept = null) {
     const [ci, cj] = this.toCell(x, z)
-    if (!this.blocked[cj * this.w + ci]) return { x, z }
+    if (!this.blocked[cj * this.w + ci] && (!accept || accept(x, z))) return { x, z }
     for (let r = 1; r < maxR; r++) {
       let best = null
       let bestD = Infinity
@@ -69,6 +69,7 @@ export class NavGrid {
           if (Math.max(Math.abs(i - ci), Math.abs(j - cj)) !== r) continue
           if (this.blocked[j * this.w + i]) continue
           const p = this.center(i, j)
+          if (accept && !accept(p.x, p.z)) continue
           const d = (p.x - x) ** 2 + (p.z - z) ** 2
           if (d < bestD) {
             bestD = d
